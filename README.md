@@ -36,11 +36,6 @@ The application features a simple graphical user interface (GUI) built with Tkin
 
    ```bash
    pip install requests beautifulsoup4 openai
-
-3. You will need to use the code below in python repl terminal 
-    ```bash
-   >>> import nltk
-   >>> nltk.download('punk')
    
 =======
 # artificial_writer
