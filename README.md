@@ -37,7 +37,3 @@ The application features a simple graphical user interface (GUI) built with Tkin
    ```bash
    pip install requests beautifulsoup4 openai
    
-=======
-# artificial_writer
-AI writer school semester project
->>>>>>> origin/main
