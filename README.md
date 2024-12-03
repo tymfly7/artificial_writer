@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Artificial Writer
 
 ![Alt Text](artiwriter.png)
@@ -41,3 +42,7 @@ The application features a simple graphical user interface (GUI) built with Tkin
    >>> import nltk
    >>> nltk.download('punk')
    
+=======
+# artificial_writer
+AI writer school semester project
+>>>>>>> origin/main
