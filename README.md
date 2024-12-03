@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 # Artificial Writer
 
 ![Alt Text](artiwriter.png)
