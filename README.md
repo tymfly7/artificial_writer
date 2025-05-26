@@ -1,4 +1,4 @@
-
+<<<<<<< HEAD
 # Artificial Writer
 
 ![Alt Text](artiwriter.png)
@@ -36,4 +36,13 @@ The application features a simple graphical user interface (GUI) built with Tkin
 
    ```bash
    pip install requests beautifulsoup4 openai
+
+3. You will need to use the code below in python repl terminal 
+    ```bash
+   >>> import nltk
+   >>> nltk.download('punk')
    
+=======
+# artificial_writer
+AI writer school semester project
+>>>>>>> origin/main

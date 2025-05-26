@@ -82,27 +82,44 @@ class App(Tk):
         """Fetch text from URL and summarize it using OpenAI API."""
         url = self.url_entry.get()
         fetcher = TextFetcher(url)
-        fetcher.fetch_text()
-        self.fetched_text = fetcher.text
-        self.txt_area_original.delete(1.0, END)  # Clear previous text
-        self.txt_area_original.insert(END, fetcher.text)
+        try:
+            fetcher.fetch_text()
+            self.fetched_text = fetcher.text[:6000]
+            
+            self.txt_area_original.delete(1.0, END) 
+            self.txt_area_original.insert(END, self.fetched_text)
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
 
     def summarize(self):
         """Get fetched text from scrolled text and then feed it to open ai function to for summarization"""
-        text = self.txt_area_original.get("1.0", END)
+        text = self.txt_area_original.get("1.0", END).strip()
         if text:
+            self.summarize_btn.config(state='disabled')
+            self.txt_area_summary.delete(1.0, END)
+            self.txt_area_summary.insert(END, "Processing...")
+            self.update()
+
             summary = Writer(text).ai_text()
-            self.txt_area_summary.delete(1.0, END)  # Clear previous text
-            self.txt_area_summary.insert(END, summary)  # Insert summarized text
+
+            if summary:
+                self.txt_area_summary.delete(1.0, END)
+                self.txt_area_summary.insert(END, summary)
+            else:
+                messagebox.showerror("Error", "Failed to summarize text. Please check the API key and try again.")
+
+            self.summarize_btn.config(state='normal')  # Re-enable the button
         else:
-            messagebox.showwarning("Warning", f"No text available")
+            messagebox.showwarning("Warning", "No text available")
 
     def save_to_file(self):
         """Save generated text to a file."""
         generated_text = self.txt_area_summary.get(1.0, END).strip()
+        original_text = self.fetched_text
         if generated_text:
+            FileHandler.save_to_file('original_text.txt', original_text)
             FileHandler.save_to_file('generated_text.txt', generated_text)
-            messagebox.showinfo("Success", "Text saved to 'generated_text.txt'.")
+            messagebox.showinfo("Success", "Both Texts saved to Files\nOriginal text and Generated text.")
         else:
             messagebox.showwarning("Warning", "No text to save.")
 
