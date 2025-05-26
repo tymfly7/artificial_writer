@@ -6,6 +6,7 @@ class TextFetcher:
     def __init__(self, url):
         self.url = url
         self.text = ""
+        self.err = ""
 
     def fetch_text(self):
         """Fetch text from the URL and store it."""
@@ -15,5 +16,6 @@ class TextFetcher:
             soup = BeautifulSoup(response.text, 'html.parser')
             self.text = ' '.join(p.get_text() for p in soup.find_all('p'))
         except requests.exceptions.RequestException as e:
-            print(f"Error fetching text: {e}")
+            self.err = e
+            return ""
 
