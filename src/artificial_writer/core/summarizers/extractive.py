@@ -12,6 +12,7 @@ import re
 import time
 from collections import Counter
 
+from ..output_format import OutputFormat
 from .base import Summarizer, SummaryResult
 
 # A compact English stopword list -- enough to meaningfully weight content words.
@@ -47,31 +48,37 @@ class ExtractiveSummarizer(Summarizer):
             return []
         return [s.strip() for s in _SENTENCE_RE.split(text) if s.strip()]
 
-    def summarize(self, text: str) -> SummaryResult:
+    def summarize(
+        self, text: str, *, output_format: OutputFormat = OutputFormat.PROSE
+    ) -> SummaryResult:
         start = time.perf_counter()
         sentences = self._split_sentences(text)
 
-        # Nothing to trim: return the text as-is.
+        # Nothing to trim: keep every sentence.
         if len(sentences) <= self._num_sentences:
-            return SummaryResult(
-                summary=" ".join(sentences),
-                backend=self.name,
-                elapsed_seconds=time.perf_counter() - start,
+            chosen_sentences = sentences
+        else:
+            frequencies = self._word_frequencies(sentences)
+            ranked = sorted(
+                range(len(sentences)),
+                key=lambda i: self._score(sentences[i], frequencies),
+                reverse=True,
             )
+            chosen = sorted(ranked[: self._num_sentences])
+            chosen_sentences = [sentences[i] for i in chosen]
 
-        frequencies = self._word_frequencies(sentences)
-        ranked = sorted(
-            range(len(sentences)),
-            key=lambda i: self._score(sentences[i], frequencies),
-            reverse=True,
-        )
-        chosen = sorted(ranked[: self._num_sentences])
-        summary = " ".join(sentences[i] for i in chosen)
+        # BULLETS renders one sentence per "- " line; every other format
+        # (including PROSE and the LLM-only ones) falls back to joined prose.
+        if output_format is OutputFormat.BULLETS:
+            summary = "\n".join(f"- {s}" for s in chosen_sentences)
+        else:
+            summary = " ".join(chosen_sentences)
 
         return SummaryResult(
             summary=summary,
             backend=self.name,
             elapsed_seconds=time.perf_counter() - start,
+            cost_usd=0.0,
         )
 
     @staticmethod

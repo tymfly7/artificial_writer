@@ -13,6 +13,7 @@ import time
 import requests
 
 from ..errors import SummarizationError
+from ..output_format import OutputFormat
 from .base import Summarizer, SummaryResult
 from .prompt import build_prompt
 
@@ -34,14 +35,16 @@ class OllamaSummarizer(Summarizer):
         self._host = host.rstrip("/")
         self._timeout = timeout
 
-    def summarize(self, text: str) -> SummaryResult:
+    def summarize(
+        self, text: str, *, output_format: OutputFormat = OutputFormat.PROSE
+    ) -> SummaryResult:
         start = time.perf_counter()
         try:
             response = requests.post(
                 f"{self._host}/api/generate",
                 json={
                     "model": self._model,
-                    "prompt": build_prompt(text),
+                    "prompt": build_prompt(text, output_format),
                     "stream": False,
                 },
                 timeout=self._timeout,
@@ -63,4 +66,5 @@ class OllamaSummarizer(Summarizer):
             backend=self.name,
             model=self._model,
             elapsed_seconds=time.perf_counter() - start,
+            cost_usd=0.0,
         )

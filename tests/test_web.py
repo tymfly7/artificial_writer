@@ -9,6 +9,7 @@ pytest.importorskip("fastapi")
 from fastapi.testclient import TestClient  # noqa: E402
 
 from artificial_writer.core.fetcher import FetchedArticle  # noqa: E402
+from artificial_writer.core.output_format import OutputFormat  # noqa: E402
 from artificial_writer.core.pipeline import PipelineResult  # noqa: E402
 from artificial_writer.core.summarizers.base import SummaryResult  # noqa: E402
 from artificial_writer.web import app as web_app  # noqa: E402
@@ -16,7 +17,13 @@ from artificial_writer.web import app as web_app  # noqa: E402
 
 @pytest.fixture
 def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
-    def fake_run(self: object, url: str, save: bool = False) -> PipelineResult:
+    def fake_run(
+        self: object,
+        url: str,
+        *,
+        save: bool = False,
+        output_format: OutputFormat = OutputFormat.PROSE,
+    ) -> PipelineResult:
         return PipelineResult(
             article=FetchedArticle(url=url, title="Web Title", text="body"),
             summary=SummaryResult(summary="web summary", backend="extractive"),
@@ -26,7 +33,12 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
         return FetchedArticle(url=url, title="Web Title", text="hello world body")
 
     def fake_summarize_text(
-        self: object, text: str, *, title: str = "Untitled", save: bool = False
+        self: object,
+        text: str,
+        *,
+        title: str = "Untitled",
+        save: bool = False,
+        output_format: OutputFormat = OutputFormat.PROSE,
     ) -> PipelineResult:
         return PipelineResult(
             article=FetchedArticle(url="", title=title, text=text),
@@ -49,20 +61,12 @@ def test_index_renders(client: TestClient) -> None:
     assert "Artificial Writer" in resp.text
 
 
-def test_api_summarize(client: TestClient) -> None:
+def test_api_summarize_requires_auth(client: TestClient) -> None:
+    # /api/summarize is now the authenticated, quota-gated endpoint; without a
+    # session or API key it rejects the caller (covered end-to-end in
+    # test_web_quota.py).
     resp = client.post("/api/summarize", json={"url": "https://example.com/a"})
-    assert resp.status_code == 200
-    body = resp.json()
-    assert body["summary"] == "web summary"
-    assert body["title"] == "Web Title"
-
-
-def test_api_summarize_accepts_model(client: TestClient) -> None:
-    resp = client.post(
-        "/api/summarize",
-        json={"url": "https://example.com/a", "summarizer": "ollama", "model": "gemma4:e4b"},
-    )
-    assert resp.status_code == 200
+    assert resp.status_code == 401
 
 
 def test_api_fetch(client: TestClient) -> None:

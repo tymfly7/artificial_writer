@@ -13,11 +13,14 @@ from __future__ import annotations
 from .config import Settings, SummarizerType, configure_logging, get_settings
 from .errors import (
     ArtificialWriterError,
+    AuthError,
     ConfigurationError,
     FetchError,
+    QuotaExceeded,
     SummarizationError,
 )
 from .fetcher import FetchedArticle, TextFetcher
+from .output_format import OutputFormat
 from .pipeline import Pipeline, PipelineResult
 from .storage import Storage
 from .summarizers import Summarizer, SummaryResult, build_summarizer
@@ -28,11 +31,14 @@ __all__ = [
     "configure_logging",
     "get_settings",
     "ArtificialWriterError",
+    "AuthError",
     "ConfigurationError",
     "FetchError",
+    "QuotaExceeded",
     "SummarizationError",
     "FetchedArticle",
     "TextFetcher",
+    "OutputFormat",
     "Pipeline",
     "PipelineResult",
     "Storage",

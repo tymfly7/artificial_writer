@@ -5,6 +5,8 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
+from ..output_format import OutputFormat
+
 
 @dataclass(frozen=True)
 class SummaryResult:
@@ -14,6 +16,9 @@ class SummaryResult:
     backend: str
     model: str | None = None
     elapsed_seconds: float = 0.0
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    cost_usd: float | None = None
 
 
 class Summarizer(ABC):
@@ -28,6 +33,8 @@ class Summarizer(ABC):
     name: str = "base"
 
     @abstractmethod
-    def summarize(self, text: str) -> SummaryResult:
+    def summarize(
+        self, text: str, *, output_format: OutputFormat = OutputFormat.PROSE
+    ) -> SummaryResult:
         """Return a :class:`SummaryResult` for ``text``."""
         raise NotImplementedError

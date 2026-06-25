@@ -6,6 +6,7 @@ from pathlib import Path
 
 from artificial_writer.core.config import Settings, SummarizerType
 from artificial_writer.core.fetcher import FetchedArticle
+from artificial_writer.core.output_format import OutputFormat
 from artificial_writer.core.pipeline import Pipeline
 from artificial_writer.core.storage import Storage
 from artificial_writer.core.summarizers.base import Summarizer, SummaryResult
@@ -21,7 +22,9 @@ class FakeFetcher:
 class FakeSummarizer(Summarizer):
     name = "fake"
 
-    def summarize(self, text: str) -> SummaryResult:
+    def summarize(
+        self, text: str, *, output_format: OutputFormat = OutputFormat.PROSE
+    ) -> SummaryResult:
         return SummaryResult(summary="FAKE SUMMARY", backend=self.name, elapsed_seconds=0.01)
 
 
@@ -55,9 +58,11 @@ def test_input_is_truncated_to_max_chars() -> None:
     captured: dict[str, str] = {}
 
     class CapturingSummarizer(FakeSummarizer):
-        def summarize(self, text: str) -> SummaryResult:
+        def summarize(
+            self, text: str, *, output_format: OutputFormat = OutputFormat.PROSE
+        ) -> SummaryResult:
             captured["text"] = text
-            return super().summarize(text)
+            return super().summarize(text, output_format=output_format)
 
     settings = Settings(max_input_chars=100)
     pipeline = Pipeline(settings, fetcher=FakeFetcher(), summarizer=CapturingSummarizer())

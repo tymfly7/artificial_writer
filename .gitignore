@@ -35,3 +35,6 @@ Thumbs.db
 
 # Claude Code: share project instructions & skills, keep personal settings local
 .claude/
+
+# Logs
+logs.md

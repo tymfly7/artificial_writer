@@ -14,43 +14,60 @@ from __future__ import annotations
 from pathlib import Path
 
 from fastapi import FastAPI, Form, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel, HttpUrl
 
 from ..core.config import Settings, SummarizerType, get_settings
-from ..core.errors import ArtificialWriterError
+from ..core.errors import (
+    ArtificialWriterError,
+    AuthError,
+    ConfigurationError,
+    FetchError,
+    QuotaExceeded,
+    SummarizationError,
+)
+from ..core.output_format import OutputFormat
 from ..core.pipeline import Pipeline, PipelineResult
+from ..service import quotas
+from ..service.schemas import FetchRequest, FetchResponse, SummarizeResponse
+from .routers import auth as auth_router
+from .routers import summarize as summarize_router
 
 _TEMPLATES = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
 app = FastAPI(title="Artificial Writer", version="1.0.0")
+app.include_router(auth_router.router)
+app.include_router(summarize_router.router)
 
 
-class SummarizeRequest(BaseModel):
-    url: HttpUrl
-    summarizer: SummarizerType | None = None
-    model: str | None = None  # local model name (Ollama); ignored by other backends
+@app.exception_handler(AuthError)
+async def _auth_error_handler(_: Request, exc: AuthError) -> JSONResponse:
+    return JSONResponse(status_code=401, content={"detail": str(exc)})
 
 
-class SummarizeResponse(BaseModel):
-    title: str
-    url: str
-    backend: str
-    model: str | None
-    elapsed_seconds: float
-    summary: str
+@app.exception_handler(QuotaExceeded)
+async def _quota_error_handler(_: Request, exc: QuotaExceeded) -> JSONResponse:
+    # Disallowed backend -> 403; a daily cap that was hit -> 429.
+    code = 403 if exc.status == QuotaExceeded.BACKEND_NOT_ALLOWED else 429
+    return JSONResponse(status_code=code, content={"detail": str(exc)})
 
 
-class FetchRequest(BaseModel):
-    url: HttpUrl
+@app.exception_handler(FetchError)
+async def _fetch_error_handler(_: Request, exc: FetchError) -> JSONResponse:
+    return JSONResponse(status_code=400, content={"detail": str(exc)})
 
 
-class FetchResponse(BaseModel):
-    title: str
-    url: str
-    word_count: int
-    text: str
+@app.exception_handler(ConfigurationError)
+async def _config_error_handler(_: Request, exc: ConfigurationError) -> JSONResponse:
+    return JSONResponse(status_code=400, content={"detail": str(exc)})
+
+
+@app.exception_handler(SummarizationError)
+async def _summarization_error_handler(
+    _: Request, exc: SummarizationError
+) -> JSONResponse:
+    # The summary backend failed -- treat as an upstream/bad-gateway condition.
+    return JSONResponse(status_code=502, content={"detail": str(exc)})
 
 
 def _build_settings(summarizer: str | None, model: str | None) -> Settings:
@@ -85,17 +102,17 @@ def _to_response(result: PipelineResult) -> SummarizeResponse:
     )
 
 
-def _summarize(url: str, summarizer: str | None, model: str | None = None) -> SummarizeResponse:
-    """One-shot: fetch ``url`` and summarize it (used by the JSON API)."""
-    result = Pipeline(_build_settings(summarizer, model)).run(url)
-    return _to_response(result)
-
-
 def _summarize_text(
-    text: str, title: str, summarizer: str | None, model: str | None
+    text: str,
+    title: str,
+    summarizer: str | None,
+    model: str | None,
+    output_format: OutputFormat = OutputFormat.PROSE,
 ) -> SummarizeResponse:
     """Step two: summarize text already fetched in a previous request."""
-    result = Pipeline(_build_settings(summarizer, model)).summarize_text(text, title=title)
+    result = Pipeline(_build_settings(summarizer, model)).summarize_text(
+        text, title=title, output_format=output_format
+    )
     return _to_response(result)
 
 
@@ -109,16 +126,6 @@ def health() -> dict[str, str]:
 def api_fetch(req: FetchRequest) -> FetchResponse:
     """JSON API: fetch and clean the article at ``url`` without summarizing."""
     return _fetch(str(req.url))
-
-
-@app.post("/api/summarize", response_model=SummarizeResponse)
-def api_summarize(req: SummarizeRequest) -> SummarizeResponse:
-    """JSON API: fetch and summarize the article at ``url``."""
-    return _summarize(
-        str(req.url),
-        req.summarizer.value if req.summarizer else None,
-        req.model,
-    )
 
 
 def _render(
@@ -168,6 +175,14 @@ def submit(
         if action == "summarize" and article_text.strip():
             # Step two: summarize the text fetched in the previous request and
             # keep the original on screen alongside the summary.
+            #
+            # This unauthenticated local form may only use the free backends; the
+            # paid backends are reachable solely through the authenticated
+            # /api/summarize endpoint, which enforces tier and quota policy.
+            settings = get_settings()
+            quotas.assert_backend_allowed(
+                settings.default_tier, summarizer or settings.summarizer.value
+            )
             article = FetchResponse(
                 title=article_title,
                 url=url,

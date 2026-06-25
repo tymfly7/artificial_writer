@@ -32,16 +32,32 @@ dependencies = [
 # Free local LLM via Ollama needs no extra Python deps (uses requests over HTTP).
 openai = ["openai>=1.30"]
 anthropic = ["anthropic>=0.40"]
+pdf = ["pypdf>=4.0"]
+youtube = ["youtube-transcript-api>=0.6"]
 web = ["fastapi>=0.110", "uvicorn[standard]>=0.29", "jinja2>=3.1", "python-multipart>=0.0.9"]
+# Multi-tenant service layer: async DB, auth, and migrations.
+server = [
+    "sqlalchemy[asyncio]>=2.0",
+    "asyncpg>=0.29",
+    "alembic>=1.13",
+    "passlib[bcrypt]>=1.7",
+    "bcrypt<4.1",  # passlib 1.7.4 is incompatible with bcrypt>=4.1's backend probe
+    "itsdangerous>=2.1",
+    "python-multipart>=0.0.9",
+    "psycopg[binary]>=3.1",  # sync driver used by Alembic migrations
+]
 dev = [
     "pytest>=8.0",
     "pytest-cov>=5.0",
+    "pytest-asyncio>=0.23",
     "responses>=0.25",
+    "aiosqlite>=0.19",
     "ruff>=0.5",
     "mypy>=1.10",
     "types-requests>=2.31",
+    "types-passlib>=1.7",
 ]
-all = ["artificial-writer[openai,anthropic,web]"]
+all = ["artificial-writer[openai,anthropic,pdf,youtube,web,server]"]
 
 [project.urls]
 Homepage = "https://github.com/TymFly/artificial_writer"
@@ -61,6 +77,7 @@ artificial_writer = ["py.typed", "web/templates/*.html"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+asyncio_mode = "auto"
 
 [tool.ruff]
 line-length = 100
@@ -69,6 +86,10 @@ src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "C4", "SIM"]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI dependency-injection markers are designed to be called in defaults.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Form", "fastapi.Body"]
 
 [tool.mypy]
 python_version = "3.10"

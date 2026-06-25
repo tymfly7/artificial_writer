@@ -59,6 +59,24 @@ class Settings(BaseSettings):
     # Network.
     request_timeout: float = Field(default=30.0, gt=0)
 
+    # Multi-tenant service layer (used by artificial_writer.service / the web API).
+    database_url: str = "postgresql+asyncpg://aw:aw@localhost:5432/aw"
+    session_secret: str = "change-me"  # signs the "aw_session" cookie
+    default_tier: str = "free"
+
+    # Tier policy: which backends each tier may use and its daily caps. Free tiers
+    # are restricted to the offline/free backends and spend nothing; paid tiers
+    # unlock the cloud backends up to a daily request count and cost ceiling.
+    # Dict/list fields accept JSON in their ``AW_``-prefixed env vars.
+    free_backends: list[str] = Field(default_factory=lambda: ["extractive", "ollama"])
+    paid_backends: list[str] = Field(default_factory=lambda: ["openai", "anthropic"])
+    tier_daily_request_cap: dict[str, int] = Field(
+        default_factory=lambda: {"free": 20, "pro": 500}
+    )
+    tier_daily_cost_cap_usd: dict[str, float] = Field(
+        default_factory=lambda: {"free": 0.0, "pro": 5.0}
+    )
+
 
 @lru_cache
 def get_settings() -> Settings:
