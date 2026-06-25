@@ -1,48 +1,159 @@
-<<<<<<< HEAD
 # Artificial Writer
 
-![Alt Text](artiwriter.png)
+![Artificial Writer](artiwriter.png)
 
+Fetch an article from a URL, extract the readable text, and summarize it — from a
+**command line**, a **desktop GUI**, or a **web app**. Summarization is **pluggable**
+and the default backend is **free and works fully offline** (no API key required).
 
-## Overview
+> Originally a school project, rebuilt from the ground up as a clean, tested,
+> multi-interface Python application.
 
-The **Artificial Writer** is a Python application that fetches text 
-from a specified URL, processes it, and generates new text fragments. 
-The generated text is structured and coherent, making it suitable for 
-various applications such as creative writing, content generation, and more. 
-The application features a simple graphical user interface (GUI) built with Tkinter.
+---
 
-## Features
+## Highlights
 
-- Fetch text from any valid URL.
-- Generate new text fragments based on the fetched content.
-- Save generated text to a file and read from it.
-- User-friendly GUI for easy interaction.
+- **Pluggable summarizers** behind one small interface — swap backends with a flag.
+- **Free by default**: a built-in extractive summarizer runs offline with zero config.
+- **Free local LLM** support via [Ollama](https://ollama.com) (no API key).
+- **Optional cloud LLMs**: OpenAI and Anthropic (bring your own key).
+- **Three front-ends** sharing one pipeline: CLI, Tkinter GUI, FastAPI web app.
+- **Tested** with `pytest` (network mocked), **typed** (`mypy`), **linted** (`ruff`), **CI** on 3.10–3.13.
+- **Clean architecture**: `src/` layout, typed config, domain errors, dependency injection.
 
+## Architecture
 
-## Requirements
+```
+URL ──▶ TextFetcher ──▶ clean text ──▶ Summarizer ──▶ summary ──▶ Storage
+                                          ▲
+                 extractive · ollama · openai · anthropic  (chosen by a factory)
+```
 
-- Python 3.x
-- `requests` library
-- `beautifulsoup4` library
-- `openai` library
-- `tkinter` GUI library (pre-installed with Python)
-- `os` system library(pre-installed with Python)
-- You need openai api keys. Modify the writer.py accordingly
+Every front-end (CLI / GUI / web) is a thin wrapper around a single
+[`Pipeline`](src/artificial_writer/pipeline.py), so behavior stays consistent and
+the interfaces stay small.
+
+```
+src/artificial_writer/
+├── config.py            # typed settings from env / .env (pydantic-settings)
+├── fetcher.py           # URL → cleaned article text
+├── summarizers/         # pluggable backends + factory
+│   ├── base.py          #   Summarizer ABC + SummaryResult
+│   ├── extractive.py    #   free, offline (default)
+│   ├── ollama.py        #   free, local LLM
+│   ├── openai_provider.py
+│   └── anthropic_provider.py
+├── storage.py           # save/read results
+├── pipeline.py          # fetch → summarize → store orchestration
+├── cli.py · gui.py      # command-line & desktop interfaces
+└── web/                 # FastAPI app + HTML page
+```
+
 ## Installation
 
-1. Clone the repository or download the source code.
-2. Install the required libraries using pip:
+```bash
+git clone https://github.com/TymFly/artificial_writer.git
+cd artificial_writer
+```
 
-   ```bash
-   pip install requests beautifulsoup4 openai
+Create and activate a virtual environment:
 
-3. You will need to use the code below in python repl terminal 
-    ```bash
-   >>> import nltk
-   >>> nltk.download('punk')
-   
-=======
-# artificial_writer
-AI writer school semester project
->>>>>>> origin/main
+```bash
+# macOS / Linux
+python -m venv .venv
+source .venv/bin/activate
+```
+
+```powershell
+# Windows (PowerShell)
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+```
+
+Then install:
+
+```bash
+pip install -e .                # core (CLI + GUI, free extractive summarizer)
+pip install -e ".[web]"         # + web app
+pip install -e ".[all,dev]"     # everything + dev tools (tests, lint, types)
+```
+
+## Usage
+
+### CLI
+
+```bash
+artwriter https://en.wikipedia.org/wiki/Solar_power
+artwriter https://example.com/article --sentences 3
+artwriter https://example.com/article --summarizer ollama --save
+artwriter https://example.com/article --json
+```
+
+(or `python -m artificial_writer <url>`)
+
+### Desktop GUI
+
+```bash
+python -m artificial_writer.gui      # or: python main.py
+```
+
+Enter a URL and click **Fetch** to pull and view the original article text, then
+pick a backend and click **Summarize**.
+
+### Web app
+
+```bash
+python -m artificial_writer.web      # then open http://127.0.0.1:8000
+```
+
+Enter a URL and click **Fetch** to view the original text, then choose a backend
+(and a local **Model** name for Ollama) and click **Summarize**.
+
+JSON API:
+
+```bash
+# fetch only
+curl -X POST http://127.0.0.1:8000/api/fetch \
+     -H "Content-Type: application/json" \
+     -d '{"url": "https://example.com/article"}'
+
+# fetch + summarize (model applies to the Ollama backend)
+curl -X POST http://127.0.0.1:8000/api/summarize \
+     -H "Content-Type: application/json" \
+     -d '{"url": "https://example.com/article", "summarizer": "ollama", "model": "gemma4:e4b"}'
+```
+
+## Configuration
+
+All settings are optional and read from environment variables or a `.env` file
+(`AW_` prefix). Copy [`.env.example`](.env.example) to `.env` to customize.
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `AW_SUMMARIZER` | `extractive` | `extractive` \| `ollama` \| `openai` \| `anthropic` |
+| `AW_EXTRACTIVE_SENTENCES` | `5` | Sentences kept by the extractive summarizer |
+| `AW_MAX_INPUT_CHARS` | `12000` | Max characters fed to the summarizer |
+| `AW_OLLAMA_MODEL` | `llama3.2` | Local model name for Ollama |
+| `AW_OPENAI_API_KEY` | – | Enables the OpenAI backend |
+| `AW_ANTHROPIC_API_KEY` | – | Enables the Anthropic backend |
+
+### Using a free local LLM (Ollama)
+
+```bash
+# install Ollama from https://ollama.com, then:
+ollama pull llama3.2
+AW_SUMMARIZER=ollama artwriter https://example.com/article
+```
+
+## Development
+
+```bash
+pip install -e ".[all,dev]"
+pytest            # run the test suite (network is mocked)
+ruff check .      # lint
+mypy              # type-check
+```
+
+## License
+
+[MIT](LICENSE)

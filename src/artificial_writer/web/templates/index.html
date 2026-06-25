@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Artificial Writer</title>
+  <style>
+    :root { --bg: #f7f5dd; --accent: #9bdeac; --ink: #2b2b2b; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: "Segoe UI", system-ui, sans-serif;
+      background: var(--bg); color: var(--ink); line-height: 1.6;
+    }
+    main { max-width: 860px; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+    h1 { margin-bottom: .25rem; }
+    p.sub { margin-top: 0; color: #666; }
+    form { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; margin: 1.5rem 0; }
+    label { font-size: .9rem; color: #555; }
+    input[type=url], input[type=text] {
+      padding: .6rem .75rem; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem;
+    }
+    input[type=url] { flex: 1 1 320px; }
+    input[type=text] { flex: 0 1 180px; }
+    select, button { padding: .6rem .75rem; border-radius: 8px; border: 1px solid #ccc; font-size: 1rem; }
+    button { background: var(--accent); border-color: var(--accent); cursor: pointer; font-weight: 600; }
+    button:hover { filter: brightness(.96); }
+    .card { background: #fff; border-radius: 12px; padding: 1.25rem 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,.06); margin-bottom: 1.25rem; }
+    .card h2 { margin-top: 0; }
+    .meta { font-size: .85rem; color: #777; margin-top: 1rem; }
+    .error { background: #ffe3e3; color: #9b1c1c; padding: .75rem 1rem; border-radius: 8px; }
+    pre { white-space: pre-wrap; word-wrap: break-word; font-family: inherit; max-height: 22rem; overflow-y: auto; margin: 0; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Artificial Writer</h1>
+    <p class="sub">Paste an article URL and <strong>Fetch</strong> it, then pick a backend and <strong>Summarize</strong>. Free &amp; offline by default.</p>
+
+    <!-- Step one: fetch the original article text. -->
+    <form method="post" action="/">
+      <input type="hidden" name="action" value="fetch" />
+      <input type="url" name="url" placeholder="https://example.com/article"
+             value="{{ url or '' }}" required />
+      <button type="submit">Fetch</button>
+    </form>
+
+    {% if error %}
+      <div class="error">{{ error }}</div>
+    {% endif %}
+
+    {% if article %}
+      <div class="card">
+        <h2>{{ article.title }}</h2>
+        <!-- Step two: summarize the text we already fetched (no re-fetch). -->
+        <form method="post" action="/">
+          <input type="hidden" name="action" value="summarize" />
+          <input type="hidden" name="url" value="{{ article.url }}" />
+          <input type="hidden" name="article_title" value="{{ article.title }}" />
+          <input type="hidden" name="article_text" value="{{ article.text }}" />
+          <label for="summarizer">Backend</label>
+          <select id="summarizer" name="summarizer">
+            {% for b in backends %}<option value="{{ b }}">{{ b }}</option>{% endfor %}
+          </select>
+          <label for="model">Model</label>
+          <input type="text" id="model" name="model" value="{{ ollama_model }}"
+                 title="Local model name for the Ollama backend" />
+          <button type="submit">Summarize</button>
+        </form>
+        <div class="meta">Original &middot; {{ article.word_count }} words</div>
+        <pre>{{ article.text }}</pre>
+      </div>
+    {% endif %}
+
+    {% if result %}
+      <div class="card">
+        <h2>Summary</h2>
+        <pre>{{ result.summary }}</pre>
+        <div class="meta">
+          {{ result.backend }}{% if result.model %} / {{ result.model }}{% endif %}
+          &middot; {{ result.elapsed_seconds }}s
+          {% if result.url %}&middot; <a href="{{ result.url }}" target="_blank" rel="noopener">source</a>{% endif %}
+        </div>
+      </div>
+    {% endif %}
+  </main>
+</body>
+</html>
