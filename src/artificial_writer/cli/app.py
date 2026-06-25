@@ -13,10 +13,10 @@ import argparse
 import json
 import sys
 
-from . import __version__
-from .config import SummarizerType, configure_logging, get_settings
-from .errors import ArtificialWriterError
-from .pipeline import Pipeline
+from .. import __version__
+from ..core.config import SummarizerType, configure_logging, get_settings
+from ..core.errors import ArtificialWriterError
+from ..core.pipeline import Pipeline
 
 
 def _build_parser() -> argparse.ArgumentParser:

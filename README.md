@@ -29,23 +29,28 @@ URL ──▶ TextFetcher ──▶ clean text ──▶ Summarizer ──▶ su
                  extractive · ollama · openai · anthropic  (chosen by a factory)
 ```
 
-Every front-end (CLI / GUI / web) is a thin wrapper around a single
-[`Pipeline`](src/artificial_writer/pipeline.py), so behavior stays consistent and
-the interfaces stay small.
+The three front-ends are kept as separate, co-equal packages — `cli/`, `gui/`,
+and `web/` — each a thin wrapper around the shared engine in
+[`core/`](src/artificial_writer/core). A front-end depends on `core` and never
+on another front-end, so behavior stays consistent and the interfaces stay small.
 
 ```
+run_cli.py · run_gui.py · run_web.py   # top-level launchers for each front-end
 src/artificial_writer/
-├── config.py            # typed settings from env / .env (pydantic-settings)
-├── fetcher.py           # URL → cleaned article text
-├── summarizers/         # pluggable backends + factory
-│   ├── base.py          #   Summarizer ABC + SummaryResult
-│   ├── extractive.py    #   free, offline (default)
-│   ├── ollama.py        #   free, local LLM
-│   ├── openai_provider.py
-│   └── anthropic_provider.py
-├── storage.py           # save/read results
-├── pipeline.py          # fetch → summarize → store orchestration
-├── cli.py · gui.py      # command-line & desktop interfaces
+├── core/                # the shared engine every front-end is built on
+│   ├── config.py        #   typed settings from env / .env (pydantic-settings)
+│   ├── fetcher.py       #   URL → cleaned article text
+│   ├── pipeline.py      #   fetch → summarize → store orchestration
+│   ├── storage.py       #   save/read results
+│   ├── errors.py        #   domain error hierarchy
+│   └── summarizers/     #   pluggable backends + factory
+│       ├── base.py      #     Summarizer ABC + SummaryResult
+│       ├── extractive.py#     free, offline (default)
+│       ├── ollama.py    #     free, local LLM
+│       ├── openai_provider.py
+│       └── anthropic_provider.py
+├── cli/                 # command-line front-end
+├── gui/                 # Tkinter desktop front-end
 └── web/                 # FastAPI app + HTML page
 ```
 
@@ -89,12 +94,14 @@ artwriter https://example.com/article --summarizer ollama --save
 artwriter https://example.com/article --json
 ```
 
-(or `python -m artificial_writer <url>`)
+(or `python -m artificial_writer <url>`, or `python run_cli.py <url>` from a
+source checkout)
 
 ### Desktop GUI
 
 ```bash
-python -m artificial_writer.gui      # or: python main.py
+artwriter-gui                        # installed console script
+python -m artificial_writer.gui      # or: python run_gui.py
 ```
 
 Enter a URL and click **Fetch** to pull and view the original article text, then
@@ -103,8 +110,11 @@ pick a backend and click **Summarize**.
 ### Web app
 
 ```bash
-python -m artificial_writer.web      # then open http://127.0.0.1:8000
+artwriter-web                        # installed console script (needs [web] extra)
+python -m artificial_writer.web      # or: python run_web.py
 ```
+
+(then open http://127.0.0.1:8000)
 
 Enter a URL and click **Fetch** to view the original text, then choose a backend
 (and a local **Model** name for Ollama) and click **Summarize**.

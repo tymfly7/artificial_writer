@@ -12,6 +12,6 @@ from __future__ import annotations
 
 __version__ = "1.0.0"
 
-from .pipeline import Pipeline, PipelineResult
+from .core.pipeline import Pipeline, PipelineResult
 
 __all__ = ["Pipeline", "PipelineResult", "__version__"]

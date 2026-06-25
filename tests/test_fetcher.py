@@ -5,8 +5,8 @@ from __future__ import annotations
 import pytest
 import responses
 
-from artificial_writer.errors import FetchError
-from artificial_writer.fetcher import TextFetcher
+from artificial_writer.core.errors import FetchError
+from artificial_writer.core.fetcher import TextFetcher
 
 from .conftest import SAMPLE_HTML
 

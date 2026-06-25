@@ -6,11 +6,11 @@ import json
 
 import pytest
 
-from artificial_writer import cli
-from artificial_writer.errors import FetchError
-from artificial_writer.fetcher import FetchedArticle
-from artificial_writer.pipeline import PipelineResult
-from artificial_writer.summarizers.base import SummaryResult
+from artificial_writer.cli import app as cli
+from artificial_writer.core.errors import FetchError
+from artificial_writer.core.fetcher import FetchedArticle
+from artificial_writer.core.pipeline import PipelineResult
+from artificial_writer.core.summarizers.base import SummaryResult
 
 
 def _fake_result() -> PipelineResult:

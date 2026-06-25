@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from artificial_writer.config import Settings, SummarizerType
-from artificial_writer.fetcher import FetchedArticle
-from artificial_writer.pipeline import Pipeline
-from artificial_writer.storage import Storage
-from artificial_writer.summarizers.base import Summarizer, SummaryResult
+from artificial_writer.core.config import Settings, SummarizerType
+from artificial_writer.core.fetcher import FetchedArticle
+from artificial_writer.core.pipeline import Pipeline
+from artificial_writer.core.storage import Storage
+from artificial_writer.core.summarizers.base import Summarizer, SummaryResult
 
 from .conftest import SAMPLE_TEXT
 

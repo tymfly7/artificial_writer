@@ -18,9 +18,9 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, HttpUrl
 
-from ..config import Settings, SummarizerType, get_settings
-from ..errors import ArtificialWriterError
-from ..pipeline import Pipeline, PipelineResult
+from ..core.config import Settings, SummarizerType, get_settings
+from ..core.errors import ArtificialWriterError
+from ..core.pipeline import Pipeline, PipelineResult
 
 _TEMPLATES = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 

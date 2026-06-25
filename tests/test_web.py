@@ -8,9 +8,9 @@ pytest.importorskip("fastapi")
 
 from fastapi.testclient import TestClient  # noqa: E402
 
-from artificial_writer.fetcher import FetchedArticle  # noqa: E402
-from artificial_writer.pipeline import PipelineResult  # noqa: E402
-from artificial_writer.summarizers.base import SummaryResult  # noqa: E402
+from artificial_writer.core.fetcher import FetchedArticle  # noqa: E402
+from artificial_writer.core.pipeline import PipelineResult  # noqa: E402
+from artificial_writer.core.summarizers.base import SummaryResult  # noqa: E402
 from artificial_writer.web import app as web_app  # noqa: E402
 
 

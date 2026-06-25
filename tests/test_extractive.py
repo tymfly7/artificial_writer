@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from artificial_writer.summarizers.extractive import ExtractiveSummarizer
+from artificial_writer.core.summarizers.extractive import ExtractiveSummarizer
 
 from .conftest import SAMPLE_TEXT
 

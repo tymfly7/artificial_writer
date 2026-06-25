@@ -26,6 +26,9 @@
     button:hover { filter: brightness(.96); }
     .card { background: #fff; border-radius: 12px; padding: 1.25rem 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,.06); margin-bottom: 1.25rem; }
     .card h2 { margin-top: 0; }
+    .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; align-items: start; }
+    .compare .card { margin-bottom: 0; }
+    @media (max-width: 680px) { .compare { grid-template-columns: 1fr; } }
     .meta { font-size: .85rem; color: #777; margin-top: 1rem; }
     .error { background: #ffe3e3; color: #9b1c1c; padding: .75rem 1rem; border-radius: 8px; }
     pre { white-space: pre-wrap; word-wrap: break-word; font-family: inherit; max-height: 22rem; overflow-y: auto; margin: 0; }
@@ -49,36 +52,42 @@
     {% endif %}
 
     {% if article %}
-      <div class="card">
-        <h2>{{ article.title }}</h2>
-        <!-- Step two: summarize the text we already fetched (no re-fetch). -->
-        <form method="post" action="/">
-          <input type="hidden" name="action" value="summarize" />
-          <input type="hidden" name="url" value="{{ article.url }}" />
-          <input type="hidden" name="article_title" value="{{ article.title }}" />
-          <input type="hidden" name="article_text" value="{{ article.text }}" />
-          <label for="summarizer">Backend</label>
-          <select id="summarizer" name="summarizer">
-            {% for b in backends %}<option value="{{ b }}">{{ b }}</option>{% endfor %}
-          </select>
-          <label for="model">Model</label>
-          <input type="text" id="model" name="model" value="{{ ollama_model }}"
-                 title="Local model name for the Ollama backend" />
-          <button type="submit">Summarize</button>
-        </form>
-        <div class="meta">Original &middot; {{ article.word_count }} words</div>
-        <pre>{{ article.text }}</pre>
-      </div>
-    {% endif %}
+      <h2>{{ article.title }}</h2>
+      <!-- Step two: summarize the text we already fetched (no re-fetch). -->
+      <form method="post" action="/">
+        <input type="hidden" name="action" value="summarize" />
+        <input type="hidden" name="url" value="{{ article.url }}" />
+        <input type="hidden" name="article_title" value="{{ article.title }}" />
+        <input type="hidden" name="article_text" value="{{ article.text }}" />
+        <label for="summarizer">Backend</label>
+        <select id="summarizer" name="summarizer">
+          {% for b in backends %}<option value="{{ b }}">{{ b }}</option>{% endfor %}
+        </select>
+        <label for="model">Model</label>
+        <input type="text" id="model" name="model" value="{{ ollama_model }}"
+               title="Local model name for the Ollama backend" />
+        <button type="submit">Summarize</button>
+      </form>
 
-    {% if result %}
-      <div class="card">
-        <h2>Summary</h2>
-        <pre>{{ result.summary }}</pre>
-        <div class="meta">
-          {{ result.backend }}{% if result.model %} / {{ result.model }}{% endif %}
-          &middot; {{ result.elapsed_seconds }}s
-          {% if result.url %}&middot; <a href="{{ result.url }}" target="_blank" rel="noopener">source</a>{% endif %}
+      <!-- Original and summary side by side for easy comparison. -->
+      <div class="compare">
+        <div class="card">
+          <h2>Original</h2>
+          <pre>{{ article.text }}</pre>
+          <div class="meta">{{ article.word_count }} words</div>
+        </div>
+        <div class="card">
+          <h2>Summary</h2>
+          {% if result %}
+            <pre>{{ result.summary }}</pre>
+            <div class="meta">
+              {{ result.backend }}{% if result.model %} / {{ result.model }}{% endif %}
+              &middot; {{ result.elapsed_seconds }}s
+              {% if result.url %}&middot; <a href="{{ result.url }}" target="_blank" rel="noopener">source</a>{% endif %}
+            </div>
+          {% else %}
+            <p class="sub">Pick a backend above and click <strong>Summarize</strong>.</p>
+          {% endif %}
         </div>
       </div>
     {% endif %}

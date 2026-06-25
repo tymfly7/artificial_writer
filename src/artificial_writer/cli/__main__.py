@@ -1,8 +1,8 @@
-"""Allow ``python -m artificial_writer`` to launch the CLI."""
+"""Launch the CLI with ``python -m artificial_writer.cli``."""
 
 from __future__ import annotations
 
-from .cli.app import main
+from .app import main
 
 if __name__ == "__main__":
     raise SystemExit(main())

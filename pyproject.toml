@@ -48,7 +48,9 @@ Homepage = "https://github.com/TymFly/artificial_writer"
 Repository = "https://github.com/TymFly/artificial_writer"
 
 [project.scripts]
-artwriter = "artificial_writer.cli:main"
+artwriter = "artificial_writer.cli.app:main"
+artwriter-gui = "artificial_writer.gui.app:main"
+artwriter-web = "artificial_writer.web.__main__:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

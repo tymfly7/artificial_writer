@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import pytest
 
-from artificial_writer.config import Settings, SummarizerType
-from artificial_writer.errors import ConfigurationError
-from artificial_writer.summarizers import build_summarizer
-from artificial_writer.summarizers.extractive import ExtractiveSummarizer
+from artificial_writer.core.config import Settings, SummarizerType
+from artificial_writer.core.errors import ConfigurationError
+from artificial_writer.core.summarizers import build_summarizer
+from artificial_writer.core.summarizers.extractive import ExtractiveSummarizer
 
 
 def test_factory_builds_extractive_by_default() -> None:

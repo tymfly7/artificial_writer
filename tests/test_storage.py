@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from artificial_writer.storage import Storage
+from artificial_writer.core.storage import Storage
 
 
 def test_save_and_read_roundtrip(tmp_path: Path) -> None:

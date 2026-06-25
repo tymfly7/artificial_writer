@@ -11,10 +11,10 @@ import threading
 import tkinter as tk
 from tkinter import messagebox, scrolledtext, ttk
 
-from .config import SummarizerType, configure_logging, get_settings
-from .errors import ArtificialWriterError
-from .fetcher import FetchedArticle
-from .pipeline import Pipeline, PipelineResult
+from ..core.config import SummarizerType, configure_logging, get_settings
+from ..core.errors import ArtificialWriterError
+from ..core.fetcher import FetchedArticle
+from ..core.pipeline import Pipeline, PipelineResult
 
 _BG = "#f7f5dd"
 _ACCENT = "#9bdeac"
@@ -111,15 +111,15 @@ class App(tk.Tk):
 
         bottom = tk.Frame(self, bg=_BG)
         bottom.pack(fill="x", pady=(8, 0))
-        self.save_btn = tk.Button(
+        self.copy_btn = tk.Button(
             bottom,
-            text="Save",
+            text="Copy",
             bg=_ACCENT,
             font=(_FONT, _SIZE_BODY),
-            command=self._save,
+            command=self._copy,
             state="disabled",
         )
-        self.save_btn.pack(side="left")
+        self.copy_btn.pack(side="left")
 
         self.progress = ttk.Progressbar(bottom, mode="indeterminate", length=160)
         # Packed on demand while work runs; hidden otherwise.
@@ -161,7 +161,7 @@ class App(tk.Tk):
         self._result = None
         self.fetch_btn.config(state="disabled")
         self.go_btn.config(state="disabled")
-        self.save_btn.config(state="disabled")
+        self.copy_btn.config(state="disabled")
         self.original.delete("1.0", "end")
         self.summary.delete("1.0", "end")
         self.status.set("Fetching...")
@@ -186,7 +186,7 @@ class App(tk.Tk):
 
         self.fetch_btn.config(state="disabled")
         self.go_btn.config(state="disabled")
-        self.save_btn.config(state="disabled")
+        self.copy_btn.config(state="disabled")
         self.summary.delete("1.0", "end")
         self.status.set("Summarizing...")
         self._start_loading()
@@ -242,21 +242,17 @@ class App(tk.Tk):
         self._result = result
         self.summary.delete("1.0", "end")
         self.summary.insert("end", result.summary.summary)
-        self.save_btn.config(state="normal")
+        self.copy_btn.config(state="normal")
         self.status.set(
             f"Done via {result.summary.backend} in {result.summary.elapsed_seconds:.2f}s."
         )
 
-    def _save(self) -> None:
+    def _copy(self) -> None:
         if not self._result:
             return
-        path = Pipeline(self._settings)._storage.save_summary(  # noqa: SLF001 - internal reuse
-            self._result.article.title,
-            self._result.article.text,
-            self._result.summary.summary,
-        )
-        self.status.set(f"Saved to {path}")
-        messagebox.showinfo("Saved", f"Summary saved to:\n{path}")
+        self.clipboard_clear()
+        self.clipboard_append(self._result.summary.summary)
+        self.status.set("Summary copied to clipboard.")
 
 
 def main() -> None:

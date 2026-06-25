@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from artificial_writer.config import Settings, SummarizerType
+from artificial_writer.core.config import Settings, SummarizerType
 
 SAMPLE_HTML = """
 <html>
