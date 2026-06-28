@@ -37,18 +37,25 @@ def build_summarizer(settings: Settings | None = None) -> Summarizer:
             model=settings.ollama_model,
             host=settings.ollama_host,
             timeout=settings.request_timeout * 4,
+            max_input_tokens=settings.ollama_max_input_tokens,
         )
 
     if kind is SummarizerType.OPENAI:
         from .openai_provider import OpenAISummarizer
 
-        return OpenAISummarizer(api_key=settings.openai_api_key, model=settings.openai_model)
+        return OpenAISummarizer(
+            api_key=settings.openai_api_key,
+            model=settings.openai_model,
+            max_input_tokens=settings.openai_max_input_tokens,
+        )
 
     if kind is SummarizerType.ANTHROPIC:
         from .anthropic_provider import AnthropicSummarizer
 
         return AnthropicSummarizer(
-            api_key=settings.anthropic_api_key, model=settings.anthropic_model
+            api_key=settings.anthropic_api_key,
+            model=settings.anthropic_model,
+            max_input_tokens=settings.anthropic_max_input_tokens,
         )
 
     raise ConfigurationError(f"Unknown summarizer: {kind!r}")  # pragma: no cover

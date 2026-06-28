@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>404 &middot; Artificial Writer</title>
+  <style>
+    :root { --bg: #f7f5dd; --accent: #9bdeac; --ink: #2b2b2b; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: "Segoe UI", system-ui, sans-serif;
+      background: var(--bg); color: var(--ink); line-height: 1.6;
+    }
+    main { max-width: 640px; margin: 0 auto; padding: 3rem 1.25rem 4rem; text-align: center; }
+    h1 { font-size: 4rem; margin: 0; letter-spacing: .05em; }
+    h2 { margin: .25rem 0 1rem; }
+    p.sub { margin-top: 0; color: #666; }
+    .gif {
+      max-width: 100%; width: 360px; border-radius: 12px; margin: 1.5rem auto;
+      box-shadow: 0 2px 8px rgba(0,0,0,.12);
+    }
+    .gif-credit { font-size: .75rem; color: #999; margin-top: -.75rem; }
+    a.home {
+      display: inline-block; margin-top: 1.5rem; padding: .7rem 1.25rem;
+      background: var(--accent); border: 1px solid var(--accent); border-radius: 8px;
+      color: var(--ink); text-decoration: none; font-weight: 600;
+    }
+    a.home:hover { filter: brightness(.96); }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>404</h1>
+    <h2>We looked everywhere &mdash; couldn't find a thing.</h2>
+    <p class="sub">Looks like you hit a wall, bro. This page doesn't exist (or wandered off).</p>
+
+    <img class="gif" src="https://media.giphy.com/media/5XvhZSJHr8wOk/giphy.gif"
+         alt="Cartoon character running straight into a wall" loading="lazy" />
+    <p class="gif-credit">via GIPHY</p>
+
+    <div>
+      <a class="home" href="/">Take me back home</a>
+    </div>
+  </main>
+</body>
+</html>

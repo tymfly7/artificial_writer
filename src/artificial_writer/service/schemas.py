@@ -69,6 +69,37 @@ class ApiKeyResponse(BaseModel):
     key: str | None = None  # full secret, returned exactly once on creation
 
 
+class AccountResponse(BaseModel):
+    """The signed-in user's profile alongside today's usage and tier caps."""
+
+    id: uuid.UUID
+    email: str
+    tier: str
+    created_at: datetime
+    requests_today: int
+    cost_usd_today: float
+    daily_request_cap: int
+    daily_cost_cap_usd: float
+
+
+class EmailChangeRequest(BaseModel):
+    """Changing the login email re-confirms the current password."""
+
+    new_email: str
+    password: str
+
+
+class PasswordChangeRequest(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=8)
+
+
+class AccountDeleteRequest(BaseModel):
+    """Deleting an account is irreversible, so re-confirm the password."""
+
+    password: str
+
+
 # --- Archive ---------------------------------------------------------------------
 
 
@@ -93,3 +124,53 @@ class ArchiveQuery(BaseModel):
     q: str | None = None
     limit: int = Field(default=50, ge=1, le=200)
     offset: int = Field(default=0, ge=0)
+
+
+# --- Batch jobs ------------------------------------------------------------------
+
+
+class BatchRequest(BaseModel):
+    urls: list[HttpUrl] = Field(min_length=1)
+    output_format: OutputFormat | None = None
+    summarizer: SummarizerType | None = None
+    model: str | None = None
+
+
+class JobOut(BaseModel):
+    """The id/status of an enqueued batch job; ``digest_id`` once finished."""
+
+    job_id: str
+    status: str | None = None
+    digest_id: str | None = None
+
+
+# --- Feeds -----------------------------------------------------------------------
+
+
+class FeedCreate(BaseModel):
+    rss_url: HttpUrl
+    cadence_minutes: int = Field(ge=1)
+
+
+class FeedOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    rss_url: str
+    cadence_minutes: int
+    last_polled: datetime | None
+    created_at: datetime
+
+
+# --- Digests ---------------------------------------------------------------------
+
+
+class DigestOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    kind: str
+    title: str
+    body: str
+    summary_ids: list[str]
+    created_at: datetime

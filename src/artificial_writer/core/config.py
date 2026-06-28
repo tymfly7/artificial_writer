@@ -38,11 +38,21 @@ class Settings(BaseSettings):
     )
 
     summarizer: SummarizerType = SummarizerType.EXTRACTIVE
-    max_input_chars: int = Field(default=12_000, ge=100)
+    max_input_chars: int = Field(default=80_000, ge=100)
     log_level: str = "INFO"
 
     # Extractive summarizer.
     extractive_sentences: int = Field(default=5, ge=1)
+
+    # Per-backend input caps (estimated tokens; see summarizers.estimate_tokens).
+    # These sit *under* the global ``max_input_chars`` ceiling: text is first
+    # trimmed to that ceiling, then to the selected backend's token budget, in
+    # both cases cut back to the last full stop. They bound cost and keep the
+    # prompt within each backend's context window. The token count is a
+    # conservative char-based estimate, not an exact per-model tokenization.
+    ollama_max_input_tokens: int = Field(default=8_000, ge=50)
+    openai_max_input_tokens: int = Field(default=12_000, ge=50)
+    anthropic_max_input_tokens: int = Field(default=24_000, ge=50)
 
     # Ollama (free local LLM).
     ollama_host: str = "http://localhost:11434"
@@ -61,6 +71,7 @@ class Settings(BaseSettings):
 
     # Multi-tenant service layer (used by artificial_writer.service / the web API).
     database_url: str = "postgresql+asyncpg://aw:aw@localhost:5432/aw"
+    redis_url: str = "redis://localhost:6379/0"  # RQ broker + result store
     session_secret: str = "change-me"  # signs the "aw_session" cookie
     default_tier: str = "free"
 

@@ -98,6 +98,14 @@ async def assert_within_quota(
         )
 
 
+async def today_usage(session: AsyncSession, user: User) -> tuple[int, float]:
+    """Return ``user``'s ``(requests, cost_usd)`` recorded so far today."""
+    usage = await repository.get_usage(session, user, _today())
+    if usage is None:
+        return 0, 0.0
+    return usage.requests, usage.cost_usd
+
+
 async def record_usage(
     session: AsyncSession, user: User, result: SummaryResult
 ) -> None:

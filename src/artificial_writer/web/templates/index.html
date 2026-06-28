@@ -37,7 +37,7 @@
 <body>
   <main>
     <h1>Artificial Writer</h1>
-    <p class="sub">Paste an article URL and <strong>Fetch</strong> it, then pick a backend and <strong>Summarize</strong>. Free &amp; offline by default.</p>
+    <p class="sub">Paste an article URL and <strong>Fetch</strong> it, then pick a backend and <strong>Summarize</strong>. Free &amp; offline by default. Have an account? <a href="/app">Open the console</a>.</p>
 
     <!-- Step one: fetch the original article text. -->
     <form method="post" action="/">
@@ -64,8 +64,9 @@
           {% for b in backends %}<option value="{{ b }}">{{ b }}</option>{% endfor %}
         </select>
         <label for="model">Model</label>
-        <input type="text" id="model" name="model" value="{{ ollama_model }}"
-               title="Local model name for the Ollama backend" />
+        <select id="model" name="model" title="Local model name for the Ollama backend">
+          <option value="{{ ollama_model }}">{{ ollama_model }}</option>
+        </select>
         <button type="submit">Summarize</button>
       </form>
 
@@ -92,5 +93,27 @@
       </div>
     {% endif %}
   </main>
+
+  <script>
+    // Poll the local Ollama host (via the server) and offer its installed
+    // models as suggestions on the Model field. Harmless when Ollama is off:
+    // the datalist just stays empty and manual entry still works.
+    (async () => {
+      const select = document.getElementById("model");
+      if (!select) return;
+      try {
+        const res = await fetch("/ollama/models", { credentials: "same-origin" });
+        if (!res.ok) return;
+        const data = await res.json();
+        const models = data.models || [];
+        if (!models.length) return;   // leave the default option in place
+        const current = select.value;
+        const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+        select.innerHTML = models.map((m) =>
+          `<option value="${esc(m)}"${m === current ? " selected" : ""}>${esc(m)}</option>`).join("");
+      } catch (_) { /* Ollama not running; the default option stays. */ }
+    })();
+  </script>
 </body>
 </html>

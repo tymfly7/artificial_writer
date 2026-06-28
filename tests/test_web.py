@@ -61,12 +61,42 @@ def test_index_renders(client: TestClient) -> None:
     assert "Artificial Writer" in resp.text
 
 
+def test_console_renders(client: TestClient) -> None:
+    # The browser console is a static page that drives the JSON API client-side;
+    # it renders without auth (the page itself does the login/register calls).
+    resp = client.get("/app")
+    assert resp.status_code == 200
+    for marker in ("/auth/login", "/api/summarize", "/api/archive", "/auth/keys"):
+        assert marker in resp.text
+
+
 def test_api_summarize_requires_auth(client: TestClient) -> None:
     # /api/summarize is now the authenticated, quota-gated endpoint; without a
     # session or API key it rejects the caller (covered end-to-end in
     # test_web_quota.py).
     resp = client.post("/api/summarize", json={"url": "https://example.com/a"})
     assert resp.status_code == 401
+
+
+def test_ollama_models(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    # The picker endpoint polls the local Ollama host; stub that discovery so the
+    # test never touches the network.
+    monkeypatch.setattr(web_app, "list_ollama_models", lambda *a, **k: ["llama3.2", "phi4"])
+    resp = client.get("/ollama/models")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["models"] == ["llama3.2", "phi4"]
+    assert "default" in body
+
+
+def test_ollama_models_empty_when_unreachable(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Ollama not running -> empty list, still a 200 so the UI degrades gracefully.
+    monkeypatch.setattr(web_app, "list_ollama_models", lambda *a, **k: [])
+    resp = client.get("/ollama/models")
+    assert resp.status_code == 200
+    assert resp.json()["models"] == []
 
 
 def test_api_fetch(client: TestClient) -> None:

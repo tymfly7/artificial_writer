@@ -45,6 +45,10 @@ server = [
     "itsdangerous>=2.1",
     "python-multipart>=0.0.9",
     "psycopg[binary]>=3.1",  # sync driver used by Alembic migrations
+    "redis>=5.0",  # broker/result store for the RQ job queue
+    "rq>=1.16",  # async batch jobs + feed polling workers
+    "rq-scheduler>=0.13",  # periodic feed-poll scheduling
+    "feedparser>=6.0",  # RSS/Atom parsing for feed polling
 ]
 dev = [
     "pytest>=8.0",
@@ -52,6 +56,8 @@ dev = [
     "pytest-asyncio>=0.23",
     "responses>=0.25",
     "aiosqlite>=0.19",
+    "fakeredis>=2.20",  # in-memory Redis for the job-queue tests
+    "testcontainers[postgres]>=4.0",  # optional: real-Postgres FTS test (skips if unavailable)
     "ruff>=0.5",
     "mypy>=1.10",
     "types-requests>=2.31",
@@ -67,6 +73,8 @@ Repository = "https://github.com/TymFly/artificial_writer"
 artwriter = "artificial_writer.cli.app:main"
 artwriter-gui = "artificial_writer.gui.app:main"
 artwriter-web = "artificial_writer.web.__main__:main"
+artwriter-worker = "artificial_writer.service.jobs.queue:run_worker"
+artwriter-scheduler = "artificial_writer.service.jobs.scheduler:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

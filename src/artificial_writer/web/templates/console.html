@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Console — Artificial Writer</title>
+  <style>
+    :root { --bg: #f7f5dd; --accent: #9bdeac; --ink: #2b2b2b; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: "Segoe UI", system-ui, sans-serif;
+      background: var(--bg); color: var(--ink); line-height: 1.6;
+    }
+    main { max-width: 860px; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+    h1 { margin-bottom: .25rem; }
+    h2 { margin-top: 0; }
+    p.sub { margin-top: 0; color: #666; }
+    a { color: #1c6b3c; }
+    label { display: block; font-size: .9rem; color: #555; margin-bottom: .2rem; }
+    input, select, button, textarea {
+      padding: .6rem .75rem; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem;
+      font-family: inherit;
+    }
+    input, select { width: 100%; }
+    button { background: var(--accent); border-color: var(--accent); cursor: pointer; font-weight: 600; }
+    button:hover { filter: brightness(.96); }
+    button.link { background: none; border: none; color: #1c6b3c; padding: 0; font-weight: 600; width: auto; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    @media (max-width: 560px) { .row { grid-template-columns: 1fr; } }
+    .field { margin-bottom: 1rem; }
+    .card { background: #fff; border-radius: 12px; padding: 1.25rem 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,.06); margin-bottom: 1.25rem; }
+    .meta { font-size: .85rem; color: #777; margin-top: .75rem; }
+    .error { background: #ffe3e3; color: #9b1c1c; padding: .75rem 1rem; border-radius: 8px; margin: 1rem 0; }
+    .topbar { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; flex-wrap: wrap; }
+    .tabs { display: flex; gap: .5rem; margin-bottom: 1rem; }
+    .tabs button { background: #fff; border: 1px solid #ccc; }
+    .tabs button.active { background: var(--accent); border-color: var(--accent); }
+    .hidden { display: none; }
+    pre { white-space: pre-wrap; word-wrap: break-word; font-family: inherit; margin: 0; }
+    .muted { color: #777; }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="topbar">
+      <div>
+        <h1>Artificial Writer</h1>
+        <p class="sub">Your account console &middot; <a href="/">simple form</a></p>
+      </div>
+      <div id="account" class="hidden">
+        <span class="muted" id="who"></span>
+        <button class="link" id="logout">Log out</button>
+      </div>
+    </div>
+
+    <!-- ---------------------------------------------------------------- Auth -->
+    <section id="auth-view" class="hidden">
+      <div class="card">
+        <div class="tabs">
+          <button id="tab-login" class="active" type="button">Log in</button>
+          <button id="tab-register" type="button">Register</button>
+        </div>
+        <div id="auth-error" class="error hidden"></div>
+
+        <form id="login-form">
+          <div class="field">
+            <label for="login-email">Email</label>
+            <input id="login-email" type="email" autocomplete="username" required />
+          </div>
+          <div class="field">
+            <label for="login-password">Password</label>
+            <input id="login-password" type="password" autocomplete="current-password" required />
+          </div>
+          <button type="submit">Log in</button>
+        </form>
+
+        <form id="register-form" class="hidden">
+          <div class="field">
+            <label for="reg-email">Email</label>
+            <input id="reg-email" type="email" autocomplete="username" required />
+          </div>
+          <div class="field">
+            <label for="reg-password">Password <span class="muted">(min 8 characters)</span></label>
+            <input id="reg-password" type="password" autocomplete="new-password" minlength="8" required />
+          </div>
+          <button type="submit">Create account</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- ------------------------------------------------------------ Console -->
+    <section id="app-view" class="hidden">
+      <div class="card">
+        <h2>Account</h2>
+        <div id="account-summary" class="meta"></div>
+        <details style="margin-top:1rem">
+          <summary style="cursor:pointer; color:#1c6b3c; font-weight:600">Change email</summary>
+          <form id="email-form" style="margin-top:1rem">
+            <div class="field">
+              <label for="new-email">New email</label>
+              <input id="new-email" type="email" autocomplete="email" required />
+            </div>
+            <div class="field">
+              <label for="email-password">Confirm with your password</label>
+              <input id="email-password" type="password" autocomplete="current-password" required />
+            </div>
+            <button type="submit">Update email</button>
+            <div id="email-error" class="error hidden"></div>
+            <div id="email-ok" class="meta hidden">Email updated.</div>
+          </form>
+        </details>
+        <details style="margin-top:1rem">
+          <summary style="cursor:pointer; color:#1c6b3c; font-weight:600">Change password</summary>
+          <form id="password-form" style="margin-top:1rem">
+            <div class="field">
+              <label for="cur-password">Current password</label>
+              <input id="cur-password" type="password" autocomplete="current-password" required />
+            </div>
+            <div class="field">
+              <label for="new-password">New password <span class="muted">(min 8 characters)</span></label>
+              <input id="new-password" type="password" autocomplete="new-password" minlength="8" required />
+            </div>
+            <button type="submit">Update password</button>
+            <div id="password-error" class="error hidden"></div>
+            <div id="password-ok" class="meta hidden">Password updated.</div>
+          </form>
+        </details>
+        <details style="margin-top:1rem">
+          <summary style="cursor:pointer; color:#9b1c1c; font-weight:600">Delete account</summary>
+          <form id="delete-form" style="margin-top:1rem">
+            <p class="sub">This permanently deletes your account and all summaries,
+              feeds, digests, and API keys. This cannot be undone.</p>
+            <div class="field">
+              <label for="del-password">Confirm with your password</label>
+              <input id="del-password" type="password" autocomplete="current-password" required />
+            </div>
+            <button type="submit" style="background:#ffb3b3; border-color:#ffb3b3">Delete my account</button>
+            <div id="delete-error" class="error hidden"></div>
+          </form>
+        </details>
+      </div>
+
+      <div class="card">
+        <h2>Summarize</h2>
+        <div class="field">
+          <label for="url">Article URL</label>
+          <input id="url" type="url" placeholder="https://example.com/article" required />
+        </div>
+        <div class="row">
+          <div class="field">
+            <label for="output_format">Format</label>
+            <select id="output_format">
+              {% for f in output_formats %}<option value="{{ f }}">{{ f }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="field">
+            <label for="summarizer">Backend</label>
+            <select id="summarizer">
+              {% for b in backends %}<option value="{{ b }}">{{ b }}</option>{% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label for="model">Model <span class="muted">(local name for the Ollama backend; ignored by others)</span></label>
+          <select id="model">
+            <option value="{{ ollama_model }}">{{ ollama_model }}</option>
+          </select>
+          <div class="meta hidden" id="model-hint"></div>
+        </div>
+        <button id="summarize-btn" type="button">Summarize</button>
+        <div id="summarize-error" class="error hidden"></div>
+        <div id="summary-result"></div>
+      </div>
+
+      <div class="card">
+        <h2>Batch</h2>
+        <p class="sub">Summarize many URLs at once into a single digest.</p>
+        <div class="field">
+          <label for="batch-urls">Article URLs <span class="muted">(one per line)</span></label>
+          <textarea id="batch-urls" rows="4" style="width:100%"
+            placeholder="https://example.com/one&#10;https://example.com/two"></textarea>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label for="batch-format">Format</label>
+            <select id="batch-format">
+              {% for f in output_formats %}<option value="{{ f }}">{{ f }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="field">
+            <label for="batch-backend">Backend</label>
+            <select id="batch-backend">
+              {% for b in backends %}<option value="{{ b }}">{{ b }}</option>{% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label for="batch-model">Model <span class="muted">(local name for the Ollama backend; ignored by others)</span></label>
+          <select id="batch-model">
+            <option value="{{ ollama_model }}">{{ ollama_model }}</option>
+          </select>
+          <div class="meta hidden" id="batch-model-hint"></div>
+        </div>
+        <button id="batch-btn" type="button">Run batch</button>
+        <div id="batch-error" class="error hidden"></div>
+        <div id="batch-status" class="meta hidden"></div>
+      </div>
+
+      <div class="card">
+        <h2>Feeds</h2>
+        <p class="sub">Subscribe to an RSS/Atom feed; new articles are auto-summarized into digests on a cadence.</p>
+        <form id="feed-form">
+          <div class="row">
+            <div class="field">
+              <label for="feed-url">Feed URL</label>
+              <input id="feed-url" type="url" placeholder="https://example.com/feed.xml" required />
+            </div>
+            <div class="field">
+              <label for="feed-cadence">Poll every (minutes)</label>
+              <input id="feed-cadence" type="number" min="1" value="60" required />
+            </div>
+          </div>
+          <button type="submit">Subscribe</button>
+        </form>
+        <div id="feed-error" class="error hidden"></div>
+        <div id="feed-results"></div>
+      </div>
+
+      <div class="card">
+        <h2>Archive</h2>
+        <p class="sub">Full-text search your saved summaries.</p>
+        <form id="archive-form">
+          <div class="field">
+            <input id="archive-q" type="search" placeholder="Search terms…" required />
+          </div>
+          <button type="submit">Search</button>
+        </form>
+        <div id="archive-error" class="error hidden"></div>
+        <div id="archive-results"></div>
+      </div>
+
+      <div class="card">
+        <h2>Digests <button class="link" id="refresh-digests" type="button">refresh</button></h2>
+        <p class="sub">Stored output of batch runs and feed polls.</p>
+        <div id="digests-error" class="error hidden"></div>
+        <div id="digests-results"></div>
+      </div>
+
+      <div class="card">
+        <h2>API keys <button class="link" id="create-key" type="button">+ new key</button></h2>
+        <p class="sub">Use a key as <code>Authorization: Bearer aw_…</code> to call the API directly.</p>
+        <div id="keys-error" class="error hidden"></div>
+        <div id="new-key" class="meta hidden"></div>
+        <div id="keys-results"></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const show = (el) => el.classList.remove("hidden");
+    const hide = (el) => el.classList.add("hidden");
+
+    function showError(el, msg) { el.textContent = msg; show(el); }
+    function clearError(el) { el.textContent = ""; hide(el); }
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, (c) =>
+        ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    }
+
+    async function api(path, options = {}) {
+      const res = await fetch(path, { credentials: "same-origin", ...options });
+      let data = null;
+      try { data = await res.json(); } catch (_) { /* empty body */ }
+      if (!res.ok) {
+        const detail = (data && data.detail) || res.statusText || "Request failed";
+        throw new Error(detail);
+      }
+      return data;
+    }
+
+    // --- Views -------------------------------------------------------------
+    function showAuth() {
+      show($("auth-view")); hide($("app-view")); hide($("account"));
+    }
+    function showApp(email) {
+      hide($("auth-view")); show($("app-view")); show($("account"));
+      if (email) $("who").textContent = email + " · ";
+      loadAccount(); loadDigests(); loadFeeds(); loadKeys();
+    }
+
+    // --- Account -----------------------------------------------------------
+    async function loadAccount() {
+      try {
+        const a = await api("/auth/me");
+        $("who").textContent = a.email + " · ";
+        const cap = a.daily_cost_cap_usd > 0
+          ? ` · $${a.cost_usd_today.toFixed(2)} / $${a.daily_cost_cap_usd.toFixed(2)} spent today`
+          : "";
+        $("account-summary").innerHTML =
+          `<strong>${escapeHtml(a.email)}</strong> · ${escapeHtml(a.tier)} tier`
+          + ` · member since ${escapeHtml(new Date(a.created_at).toLocaleDateString())}`
+          + `<br>${a.requests_today} / ${a.daily_request_cap} requests today${cap}`;
+      } catch (_) { /* leave the section blank if it can't load */ }
+    }
+
+    $("email-form").onsubmit = async (e) => {
+      e.preventDefault();
+      clearError($("email-error")); hide($("email-ok"));
+      try {
+        await api("/auth/email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            new_email: $("new-email").value.trim(),
+            password: $("email-password").value,
+          }),
+        });
+        $("email-form").reset();
+        show($("email-ok"));
+        loadAccount();   // reflect the new email in the header and summary
+      } catch (err) { showError($("email-error"), err.message); }
+    };
+
+    $("password-form").onsubmit = async (e) => {
+      e.preventDefault();
+      clearError($("password-error")); hide($("password-ok"));
+      try {
+        await api("/auth/password", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            current_password: $("cur-password").value,
+            new_password: $("new-password").value,
+          }),
+        });
+        $("password-form").reset();
+        show($("password-ok"));
+      } catch (err) { showError($("password-error"), err.message); }
+    };
+
+    $("delete-form").onsubmit = async (e) => {
+      e.preventDefault();
+      clearError($("delete-error"));
+      if (!confirm("Permanently delete your account and all its data?")) return;
+      try {
+        await api("/auth/account", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password: $("del-password").value }),
+        });
+        showAuth();
+      } catch (err) { showError($("delete-error"), err.message); }
+    };
+
+    // --- Auth tabs ---------------------------------------------------------
+    $("tab-login").onclick = () => {
+      $("tab-login").classList.add("active"); $("tab-register").classList.remove("active");
+      show($("login-form")); hide($("register-form")); clearError($("auth-error"));
+    };
+    $("tab-register").onclick = () => {
+      $("tab-register").classList.add("active"); $("tab-login").classList.remove("active");
+      show($("register-form")); hide($("login-form")); clearError($("auth-error"));
+    };
+
+    $("login-form").onsubmit = async (e) => {
+      e.preventDefault();
+      clearError($("auth-error"));
+      try {
+        const user = await api("/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: $("login-email").value, password: $("login-password").value }),
+        });
+        showApp(user.email);
+      } catch (err) { showError($("auth-error"), err.message); }
+    };
+
+    $("register-form").onsubmit = async (e) => {
+      e.preventDefault();
+      clearError($("auth-error"));
+      try {
+        const user = await api("/auth/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: $("reg-email").value, password: $("reg-password").value }),
+        });
+        showApp(user.email);
+      } catch (err) { showError($("auth-error"), err.message); }
+    };
+
+    $("logout").onclick = async () => {
+      try { await api("/auth/logout", { method: "POST" }); } catch (_) { /* ignore */ }
+      showAuth();
+    };
+
+    // --- Ollama model discovery -------------------------------------------
+    // Poll the server (which polls the local Ollama host) so the picker always
+    // reflects the models actually installed. Falls back silently to manual
+    // entry when Ollama is not running.
+    async function loadOllamaModels() {
+      // Both the Summarize and Batch cards have an Ollama model picker; keep
+      // them in sync off a single discovery call.
+      const targets = [
+        { select: $("model"), hint: $("model-hint") },
+        { select: $("batch-model"), hint: $("batch-model-hint") },
+      ];
+      try {
+        const data = await api("/ollama/models");
+        const models = (data && data.models) || [];
+        for (const { select, hint } of targets) {
+          if (!select) continue;
+          if (models.length) {
+            const selected = select.value || (data && data.default) || "";
+            select.innerHTML = models.map((m) =>
+              `<option value="${escapeHtml(m)}"${m === selected ? " selected" : ""}>${escapeHtml(m)}</option>`
+            ).join("");
+            clearError(hint);
+          } else {
+            hint.textContent =
+              "No Ollama models detected — start `ollama serve` and pull one (e.g. `ollama pull llama3.2`).";
+            show(hint);
+          }
+        }
+      } catch (_) { /* keep the default option; manual config still applies */ }
+    }
+
+    // --- Summarize ---------------------------------------------------------
+    $("summarize-btn").onclick = async () => {
+      clearError($("summarize-error"));
+      const btn = $("summarize-btn");
+      const url = $("url").value.trim();
+      if (!url) { showError($("summarize-error"), "Enter an article URL."); return; }
+      btn.disabled = true; btn.textContent = "Summarizing…";
+      try {
+        const out = await api("/api/summarize", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            url,
+            output_format: $("output_format").value,
+            summarizer: $("summarizer").value,
+            model: $("model").value || null,
+          }),
+        });
+        $("summary-result").innerHTML = `
+          <div class="meta" style="margin-top:1.25rem"><strong>${escapeHtml(out.title)}</strong></div>
+          <pre>${escapeHtml(out.summary)}</pre>
+          <div class="meta">${escapeHtml(out.backend)}${out.model ? " / " + escapeHtml(out.model) : ""}
+            · ${escapeHtml(out.output_format)}
+            · <a href="${escapeHtml(out.source_url)}" target="_blank" rel="noopener">source</a></div>`;
+      } catch (err) { showError($("summarize-error"), err.message); }
+      finally { btn.disabled = false; btn.textContent = "Summarize"; }
+    };
+
+    // --- Archive -----------------------------------------------------------
+    $("archive-form").onsubmit = async (e) => {
+      e.preventDefault();
+      clearError($("archive-error"));
+      try {
+        const rows = await api("/api/archive?q=" + encodeURIComponent($("archive-q").value));
+        if (!rows.length) {
+          $("archive-results").innerHTML = `<p class="sub">No matches.</p>`;
+          return;
+        }
+        $("archive-results").innerHTML = rows.map((r) => `
+          <div class="meta" style="margin-top:1rem"><strong>${escapeHtml(r.title)}</strong></div>
+          <pre>${escapeHtml(r.summary)}</pre>
+          <div class="meta">${escapeHtml(r.backend)} · ${escapeHtml(r.output_format)}
+            · <a href="${escapeHtml(r.source_url)}" target="_blank" rel="noopener">source</a></div>`).join("");
+      } catch (err) { showError($("archive-error"), err.message); }
+    };
+
+    // --- Digests -----------------------------------------------------------
+    async function loadDigests() {
+      clearError($("digests-error"));
+      try {
+        const rows = await api("/api/digests");
+        if (!rows.length) {
+          $("digests-results").innerHTML = `<p class="sub">No digests yet.</p>`;
+          return;
+        }
+        $("digests-results").innerHTML = rows.map((d) => `
+          <div class="meta" style="margin-top:.75rem">
+            <a href="/api/digests/${d.id}?format=html" target="_blank" rel="noopener">${escapeHtml(d.title)}</a>
+            · ${escapeHtml(d.kind)} · ${d.summary_ids.length} article(s)
+            · <button class="link" data-digest="${escapeHtml(d.id)}" type="button">delete</button></div>`).join("");
+        $("digests-results").querySelectorAll("button[data-digest]").forEach((b) => {
+          b.onclick = () => deleteDigest(b.dataset.digest);
+        });
+      } catch (err) { showError($("digests-error"), err.message); }
+    }
+    $("refresh-digests").onclick = loadDigests;
+
+    async function deleteDigest(id) {
+      if (!confirm("Delete this digest? This cannot be undone.")) return;
+      try { await api(`/api/digests/${encodeURIComponent(id)}`, { method: "DELETE" }); loadDigests(); }
+      catch (err) { showError($("digests-error"), err.message); }
+    }
+
+    // --- Batch -------------------------------------------------------------
+    $("batch-btn").onclick = async () => {
+      clearError($("batch-error"));
+      const btn = $("batch-btn");
+      const urls = $("batch-urls").value.split("\n").map((u) => u.trim()).filter(Boolean);
+      if (!urls.length) { showError($("batch-error"), "Enter at least one URL."); return; }
+      const statusEl = $("batch-status");
+      btn.disabled = true; btn.textContent = "Queuing…";
+      try {
+        const job = await api("/api/batch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            urls,
+            output_format: $("batch-format").value,
+            summarizer: $("batch-backend").value,
+            model: $("batch-model").value || null,
+          }),
+        });
+        statusEl.textContent = `Job ${job.job_id}: ${job.status || "queued"}…`;
+        show(statusEl);
+        pollBatch(job.job_id, statusEl);
+      } catch (err) { showError($("batch-error"), err.message); }
+      finally { btn.disabled = false; btn.textContent = "Run batch"; }
+    };
+
+    async function pollBatch(jobId, statusEl) {
+      for (let i = 0; i < 60; i++) {     // ~3 min ceiling at 3s intervals
+        await new Promise((r) => setTimeout(r, 3000));
+        let job;
+        try { job = await api(`/api/batch/${encodeURIComponent(jobId)}`); }
+        catch (_) { continue; }
+        if (job.status === "finished") {
+          statusEl.innerHTML = job.digest_id
+            ? `Done — <a href="/api/digests/${job.digest_id}?format=html" target="_blank" rel="noopener">view digest</a>`
+            : "Done.";
+          loadDigests();
+          return;
+        }
+        if (job.status === "failed") { statusEl.textContent = "Batch job failed."; return; }
+        statusEl.textContent = `Job ${jobId}: ${job.status || "running"}…`;
+      }
+      statusEl.textContent = "Still running — check Digests shortly.";
+    }
+
+    // --- Feeds -------------------------------------------------------------
+    $("feed-form").onsubmit = async (e) => {
+      e.preventDefault();
+      clearError($("feed-error"));
+      try {
+        await api("/api/feeds", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            rss_url: $("feed-url").value.trim(),
+            cadence_minutes: Number($("feed-cadence").value),
+          }),
+        });
+        $("feed-url").value = "";
+        loadFeeds();
+      } catch (err) { showError($("feed-error"), err.message); }
+    };
+
+    async function loadFeeds() {
+      clearError($("feed-error"));
+      try {
+        const rows = await api("/api/feeds");
+        if (!rows.length) {
+          $("feed-results").innerHTML = `<p class="sub">No feeds yet.</p>`;
+          return;
+        }
+        $("feed-results").innerHTML = rows.map((f) => `
+          <div class="meta" style="margin-top:.75rem">
+            <a href="${escapeHtml(f.rss_url)}" target="_blank" rel="noopener">${escapeHtml(f.rss_url)}</a>
+            · every ${f.cadence_minutes} min
+            · ${f.last_polled
+                ? "last polled " + escapeHtml(new Date(f.last_polled).toLocaleString())
+                : "not polled yet"}
+            · <button class="link" data-feed="${escapeHtml(f.id)}" type="button">remove</button></div>`).join("");
+        $("feed-results").querySelectorAll("button[data-feed]").forEach((b) => {
+          b.onclick = () => deleteFeed(b.dataset.feed);
+        });
+      } catch (err) { showError($("feed-error"), err.message); }
+    }
+
+    async function deleteFeed(id) {
+      try { await api(`/api/feeds/${encodeURIComponent(id)}`, { method: "DELETE" }); loadFeeds(); }
+      catch (err) { showError($("feed-error"), err.message); }
+    }
+
+    // --- API keys ----------------------------------------------------------
+    $("create-key").onclick = async () => {
+      clearError($("keys-error"));
+      try {
+        const created = await api("/auth/keys", { method: "POST" });
+        $("new-key").innerHTML =
+          `New key (shown once — copy it now): <code>${escapeHtml(created.key)}</code>`;
+        show($("new-key"));
+        loadKeys();
+      } catch (err) { showError($("keys-error"), err.message); }
+    };
+
+    async function loadKeys() {
+      clearError($("keys-error"));
+      try {
+        const rows = await api("/auth/keys");
+        if (!rows.length) {
+          $("keys-results").innerHTML = `<p class="sub">No keys yet.</p>`;
+          return;
+        }
+        $("keys-results").innerHTML = rows.map((k) => `
+          <div class="meta" style="margin-top:.75rem">
+            <code>${escapeHtml(k.prefix)}…</code>
+            · created ${escapeHtml(new Date(k.created_at).toLocaleDateString())}
+            ${k.revoked_at
+              ? `· <span class="muted">revoked</span>`
+              : `· <button class="link" data-key="${escapeHtml(k.id)}" type="button">revoke</button>`}</div>`).join("");
+        $("keys-results").querySelectorAll("button[data-key]").forEach((b) => {
+          b.onclick = () => revokeKey(b.dataset.key);
+        });
+      } catch (err) { showError($("keys-error"), err.message); }
+    }
+
+    async function revokeKey(id) {
+      try { await api(`/auth/keys/${encodeURIComponent(id)}`, { method: "DELETE" }); loadKeys(); }
+      catch (err) { showError($("keys-error"), err.message); }
+    }
+
+    // Re-fetch the model list whenever the Ollama backend is (re)selected, so a
+    // failed/empty boot-time load self-heals the moment the user picks ollama.
+    $("summarizer").addEventListener("change", () => {
+      if ($("summarizer").value === "ollama") loadOllamaModels();
+    });
+    $("batch-backend").addEventListener("change", () => {
+      if ($("batch-backend").value === "ollama") loadOllamaModels();
+    });
+
+    // --- Boot: are we already logged in? -----------------------------------
+    (async () => {
+      loadOllamaModels();   // independent of auth; the picker works either way
+      try {
+        const a = await api("/auth/me");   // authed GET; 200 if a session is valid
+        showApp(a.email);
+      } catch (_) {
+        showAuth();
+      }
+    })();
+  </script>
+</body>
+</html>

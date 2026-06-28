@@ -15,9 +15,14 @@ class AnthropicSummarizer(Summarizer):
     """Summarize text using Anthropic's Messages API."""
 
     name = "anthropic"
+    #: Default input cap (tokens); factory overrides it from AW_ANTHROPIC_MAX_INPUT_TOKENS.
+    DEFAULT_MAX_INPUT_TOKENS = 24_000
 
     def __init__(
-        self, api_key: str | None, model: str = "claude-haiku-4-5-20251001"
+        self,
+        api_key: str | None,
+        model: str = "claude-haiku-4-5-20251001",
+        max_input_tokens: int | None = DEFAULT_MAX_INPUT_TOKENS,
     ) -> None:
         if not api_key:
             raise ConfigurationError(
@@ -33,10 +38,12 @@ class AnthropicSummarizer(Summarizer):
 
         self._client = anthropic.Anthropic(api_key=api_key)
         self._model = model
+        self.max_input_tokens = max_input_tokens
 
     def summarize(
         self, text: str, *, output_format: OutputFormat = OutputFormat.PROSE
     ) -> SummaryResult:
+        text = self._prepare(text)
         start = time.perf_counter()
         try:
             message = self._client.messages.create(

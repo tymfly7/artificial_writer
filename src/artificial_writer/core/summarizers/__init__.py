@@ -7,8 +7,24 @@ their dependencies are only needed when actually selected.
 
 from __future__ import annotations
 
-from .base import Summarizer, SummaryResult
+from .base import (
+    Summarizer,
+    SummaryResult,
+    estimate_tokens,
+    trim_to_sentence,
+    trim_to_tokens,
+)
 from .extractive import ExtractiveSummarizer
 from .factory import build_summarizer
+from .ollama import list_models as list_ollama_models
 
-__all__ = ["Summarizer", "SummaryResult", "ExtractiveSummarizer", "build_summarizer"]
+__all__ = [
+    "Summarizer",
+    "SummaryResult",
+    "estimate_tokens",
+    "trim_to_sentence",
+    "trim_to_tokens",
+    "ExtractiveSummarizer",
+    "build_summarizer",
+    "list_ollama_models",
+]

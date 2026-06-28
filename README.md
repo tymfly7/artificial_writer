@@ -119,19 +119,72 @@ python -m artificial_writer.web      # or: python run_web.py
 Enter a URL and click **Fetch** to view the original text, then choose a backend
 (and a local **Model** name for Ollama) and click **Summarize**.
 
-JSON API:
+JSON API (single-user, no auth):
 
 ```bash
-# fetch only
+# fetch only — clean the article text without summarizing
 curl -X POST http://127.0.0.1:8000/api/fetch \
      -H "Content-Type: application/json" \
      -d '{"url": "https://example.com/article"}'
-
-# fetch + summarize (model applies to the Ollama backend)
-curl -X POST http://127.0.0.1:8000/api/summarize \
-     -H "Content-Type: application/json" \
-     -d '{"url": "https://example.com/article", "summarizer": "ollama", "model": "gemma4:e4b"}'
 ```
+
+> The HTML form and `/api/fetch` are unauthenticated and limited to the **free**
+> backends. The authenticated, multi-tenant `/api/summarize` (with per-user
+> archives, paid backends, quotas, batch jobs, and feeds) is described below.
+
+## Multi-tenant web service
+
+The same FastAPI app exposes an authenticated, multi-tenant API backed by
+PostgreSQL (per-user archives + full-text search) and Redis (async batch jobs and
+RSS feed polling). The bundled compose stack runs the whole thing:
+
+```bash
+cp .env.example .env                 # set AW_SESSION_SECRET (and any API keys)
+docker compose -f infra/docker-compose.yml up --build
+```
+
+That starts five services — **postgres**, **redis**, **api** (on
+http://127.0.0.1:8000), **worker** (RQ batch/feed jobs), and **scheduler**
+(periodic feed polling). The `api` container runs `alembic upgrade head` on start
+via [`infra/entrypoint.sh`](infra/entrypoint.sh), so the schema is always current.
+Check it with `curl http://127.0.0.1:8000/health`.
+
+**Register a user, then authenticate with either a cookie or an API key:**
+
+```bash
+# register (sets the aw_session cookie) and keep cookies in a jar
+curl -c jar.txt -X POST http://127.0.0.1:8000/auth/register \
+     -H "Content-Type: application/json" \
+     -d '{"email": "me@example.com", "password": "password123"}'
+
+# issue a long-lived API key (the full secret is shown exactly once)
+curl -b jar.txt -X POST http://127.0.0.1:8000/auth/keys      # -> {"key": "aw_..."}
+
+# summarize for that user (Bearer key OR the cookie jar authenticates)
+curl -X POST http://127.0.0.1:8000/api/summarize \
+     -H "Authorization: Bearer aw_..." -H "Content-Type: application/json" \
+     -d '{"url": "https://example.com/article", "output_format": "bullets"}'
+```
+
+Authenticated endpoints (all scoped to the calling user):
+
+| Method & path | Purpose |
+| --- | --- |
+| `POST /auth/register` · `POST /auth/login` · `POST /auth/logout` | Session (cookie) auth |
+| `POST /auth/keys` · `GET /auth/keys` · `DELETE /auth/keys/{id}` | Issue / list / revoke API keys |
+| `POST /api/summarize` | Fetch + summarize one URL, stored to the user's archive |
+| `GET /api/archive?q=` | Full-text search the user's stored summaries |
+| `POST /api/batch` · `GET /api/batch/{job_id}` | Summarize many URLs into one digest (async) |
+| `POST /api/feeds` · `GET /api/feeds` · `DELETE /api/feeds/{id}` | Manage polled RSS feeds |
+| `GET /api/digests` · `GET /api/digests/{id}` | View batch/feed digests (JSON or HTML) |
+
+Tier policy gates the paid backends: a **free** tier may only use the offline/free
+backends (a paid backend → `403`) and is bounded by a daily request cap
+(over-cap → `429`); a **pro** tier unlocks OpenAI/Anthropic up to a daily request
+and USD cost ceiling. See the `AW_*` tier vars in [`.env.example`](.env.example).
+
+The offline CLI and desktop GUI are **unchanged** by all of this — they need none
+of the `server` dependencies and never touch Postgres or Redis.
 
 ## Configuration
 
@@ -142,10 +195,25 @@ All settings are optional and read from environment variables or a `.env` file
 | --- | --- | --- |
 | `AW_SUMMARIZER` | `extractive` | `extractive` \| `ollama` \| `openai` \| `anthropic` |
 | `AW_EXTRACTIVE_SENTENCES` | `5` | Sentences kept by the extractive summarizer |
-| `AW_MAX_INPUT_CHARS` | `12000` | Max characters fed to the summarizer |
+| `AW_MAX_INPUT_CHARS` | `80000` | Global upper bound (characters) fed to the summarizer; cut back to the last full stop |
+| `AW_OLLAMA_MAX_INPUT_TOKENS` | `8000` | Per-backend input cap for Ollama (estimated tokens, under the global cap) |
+| `AW_OPENAI_MAX_INPUT_TOKENS` | `12000` | Per-backend input cap for OpenAI (estimated tokens, under the global cap) |
+| `AW_ANTHROPIC_MAX_INPUT_TOKENS` | `24000` | Per-backend input cap for Anthropic (estimated tokens, under the global cap) |
 | `AW_OLLAMA_MODEL` | `llama3.2` | Local model name for Ollama |
 | `AW_OPENAI_API_KEY` | – | Enables the OpenAI backend |
 | `AW_ANTHROPIC_API_KEY` | – | Enables the Anthropic backend |
+
+The multi-tenant web service adds a few more (see [`.env.example`](.env.example)):
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `AW_DATABASE_URL` | `postgresql+asyncpg://aw:aw@localhost:5432/aw` | Async Postgres URL (Alembic converts it to a sync driver) |
+| `AW_REDIS_URL` | `redis://localhost:6379/0` | RQ broker + result store for batch jobs / feeds |
+| `AW_SESSION_SECRET` | `change-me` | Signs the `aw_session` login cookie — change it in any deploy |
+| `AW_DEFAULT_TIER` | `free` | Tier assigned to new users |
+| `AW_FREE_BACKENDS` / `AW_PAID_BACKENDS` | `["extractive","ollama"]` / `["openai","anthropic"]` | Which backends each class of tier may use |
+| `AW_TIER_DAILY_REQUEST_CAP` | `{"free": 20, "pro": 500}` | Per-tier daily request caps (429 over-cap) |
+| `AW_TIER_DAILY_COST_CAP_USD` | `{"free": 0.0, "pro": 5.0}` | Per-tier daily USD cost caps (a `0` cap blocks paid backends, 403) |
 
 ### Using a free local LLM (Ollama)
 

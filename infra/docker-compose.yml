@@ -1,0 +1,115 @@
+# Multi-tenant Artificial Writer service stack.
+#
+#   docker compose -f infra/docker-compose.yml up --build
+#
+# Reads AW_* configuration (API keys, session secret, tier caps) from the repo
+# root .env file. The DB/Redis connection URLs are overridden here to point at
+# the in-network service names, so .env can keep its localhost defaults for
+# running the app outside compose.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-aw}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-aw}
+      POSTGRES_DB: ${POSTGRES_DB:-aw}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-aw} -d ${POSTGRES_DB:-aw}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "6379:6379"
+
+  api:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile
+    env_file:
+      - ../.env
+    environment:
+      AW_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-aw}:${POSTGRES_PASSWORD:-aw}@postgres:5432/${POSTGRES_DB:-aw}
+      AW_REDIS_URL: redis://redis:6379/0
+      # Ollama runs on the host, not in this network: reach it via the gateway so
+      # /ollama/models discovery works. Inside a container "localhost" is the
+      # container itself, which is why the model dropdown was always empty.
+      # NOTE: we deliberately do NOT key the default off ${AW_OLLAMA_HOST} -- the
+      # root .env (loaded above via env_file) sets that to localhost, and Compose
+      # would interpolate it here too, shadowing the default and re-breaking
+      # discovery. Use a dedicated override var that .env doesn't define.
+      AW_OLLAMA_HOST: ${AW_OLLAMA_HOST_DOCKER:-http://host.docker.internal:11434}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # makes the host reachable on Linux
+    command: ["uvicorn", "artificial_writer.web.app:app", "--host", "0.0.0.0", "--port", "8000"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    ports:
+      - "8000:8000"
+
+  worker:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile
+    env_file:
+      - ../.env
+    environment:
+      AW_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-aw}:${POSTGRES_PASSWORD:-aw}@postgres:5432/${POSTGRES_DB:-aw}
+      AW_REDIS_URL: redis://redis:6379/0
+      AW_RUN_MIGRATIONS: "0"  # the api service owns migrations; wait for it instead
+      # The worker runs the actual summarization jobs, so it too must reach the
+      # host's Ollama rather than its own container loopback. Same dedicated
+      # override var as the api service (see the note there).
+      AW_OLLAMA_HOST: ${AW_OLLAMA_HOST_DOCKER:-http://host.docker.internal:11434}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: ["artwriter-worker"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+
+  scheduler:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile
+    env_file:
+      - ../.env
+    environment:
+      AW_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-aw}:${POSTGRES_PASSWORD:-aw}@postgres:5432/${POSTGRES_DB:-aw}
+      AW_REDIS_URL: redis://redis:6379/0
+      AW_RUN_MIGRATIONS: "0"  # the api service owns migrations; wait for it instead
+    command: ["artwriter-scheduler"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+
+volumes:
+  pgdata:

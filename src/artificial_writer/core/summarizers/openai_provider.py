@@ -15,8 +15,15 @@ class OpenAISummarizer(Summarizer):
     """Summarize text using OpenAI's chat completions API."""
 
     name = "openai"
+    #: Default input cap (tokens); factory overrides it from AW_OPENAI_MAX_INPUT_TOKENS.
+    DEFAULT_MAX_INPUT_TOKENS = 12_000
 
-    def __init__(self, api_key: str | None, model: str = "gpt-4o-mini") -> None:
+    def __init__(
+        self,
+        api_key: str | None,
+        model: str = "gpt-4o-mini",
+        max_input_tokens: int | None = DEFAULT_MAX_INPUT_TOKENS,
+    ) -> None:
         if not api_key:
             raise ConfigurationError(
                 "OpenAI summarizer requires AW_OPENAI_API_KEY to be set."
@@ -31,10 +38,12 @@ class OpenAISummarizer(Summarizer):
 
         self._client = OpenAI(api_key=api_key)
         self._model = model
+        self.max_input_tokens = max_input_tokens
 
     def summarize(
         self, text: str, *, output_format: OutputFormat = OutputFormat.PROSE
     ) -> SummaryResult:
+        text = self._prepare(text)
         start = time.perf_counter()
         try:
             response = self._client.chat.completions.create(

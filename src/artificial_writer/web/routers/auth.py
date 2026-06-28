@@ -7,11 +7,21 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ...core.config import get_settings
 from ...core.errors import AuthError
 from ...service import auth, repository
 from ...service.db import get_session
 from ...service.models import User
-from ...service.schemas import ApiKeyResponse, LoginRequest, RegisterRequest
+from ...service.quotas import today_usage
+from ...service.schemas import (
+    AccountDeleteRequest,
+    AccountResponse,
+    ApiKeyResponse,
+    EmailChangeRequest,
+    LoginRequest,
+    PasswordChangeRequest,
+    RegisterRequest,
+)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -61,6 +71,78 @@ async def logout(response: Response) -> dict[str, str]:
     """Clear the session cookie."""
     response.delete_cookie(auth.SESSION_COOKIE)
     return {"status": "ok"}
+
+
+@router.get("/me", response_model=AccountResponse)
+async def me(
+    user: User = Depends(auth.current_user),
+    session: AsyncSession = Depends(get_session),
+) -> AccountResponse:
+    """Return the caller's profile alongside today's usage and tier caps."""
+    settings = get_settings()
+    requests, cost = await today_usage(session, user)
+    return AccountResponse(
+        id=user.id,
+        email=user.email,
+        tier=user.tier,
+        created_at=user.created_at,
+        requests_today=requests,
+        cost_usd_today=cost,
+        daily_request_cap=settings.tier_daily_request_cap.get(user.tier, 0),
+        daily_cost_cap_usd=settings.tier_daily_cost_cap_usd.get(user.tier, 0.0),
+    )
+
+
+@router.post("/email")
+async def change_email(
+    req: EmailChangeRequest,
+    user: User = Depends(auth.current_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, str]:
+    """Change the caller's login email after re-verifying their password."""
+    if not auth.verify_password(req.password, user.password_hash):
+        raise AuthError("Password is incorrect.")
+    new_email = req.new_email.strip()
+    if not new_email:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Email cannot be empty.")
+    existing = await repository.get_user_by_email(session, new_email)
+    if existing is not None and existing.id != user.id:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Email already registered.")
+    await repository.update_email(session, user=user, email=new_email)
+    await session.commit()
+    return {"id": str(user.id), "email": user.email}
+
+
+@router.post("/password")
+async def change_password(
+    req: PasswordChangeRequest,
+    user: User = Depends(auth.current_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, str]:
+    """Change the caller's password after re-verifying the current one."""
+    if not auth.verify_password(req.current_password, user.password_hash):
+        raise AuthError("Current password is incorrect.")
+    await repository.update_password(
+        session, user=user, password_hash=auth.hash_password(req.new_password)
+    )
+    await session.commit()
+    return {"status": "ok"}
+
+
+@router.delete("/account")
+async def delete_account(
+    req: AccountDeleteRequest,
+    response: Response,
+    user: User = Depends(auth.current_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, str]:
+    """Delete the caller's account and all their data after a password check."""
+    if not auth.verify_password(req.password, user.password_hash):
+        raise AuthError("Password is incorrect.")
+    await repository.delete_user(session, user)
+    await session.commit()
+    response.delete_cookie(auth.SESSION_COOKIE)
+    return {"status": "deleted"}
 
 
 @router.post("/keys", response_model=ApiKeyResponse, status_code=status.HTTP_201_CREATED)

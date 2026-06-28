@@ -54,7 +54,7 @@ def test_run_saves_when_requested(tmp_path: Path) -> None:
     assert result.saved_path.exists()
 
 
-def test_input_is_truncated_to_max_chars() -> None:
+def test_input_is_truncated_at_sentence_boundary() -> None:
     captured: dict[str, str] = {}
 
     class CapturingSummarizer(FakeSummarizer):
@@ -68,7 +68,10 @@ def test_input_is_truncated_to_max_chars() -> None:
     pipeline = Pipeline(settings, fetcher=FakeFetcher(), summarizer=CapturingSummarizer())
     pipeline.run("https://example.com/x")
 
-    assert len(captured["text"]) == 100
+    # Stays within the cap and is cut back to a full stop rather than mid-word.
+    assert len(captured["text"]) <= 100
+    assert captured["text"].endswith(".")
+    assert SAMPLE_TEXT.startswith(captured["text"])
 
 
 def test_summarize_text_uses_real_extractive_default() -> None:

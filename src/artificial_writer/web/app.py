@@ -14,8 +14,9 @@ from __future__ import annotations
 from pathlib import Path
 
 from fastapi import FastAPI, Form, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.templating import Jinja2Templates
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from ..core.config import Settings, SummarizerType, get_settings
 from ..core.errors import (
@@ -28,9 +29,13 @@ from ..core.errors import (
 )
 from ..core.output_format import OutputFormat
 from ..core.pipeline import Pipeline, PipelineResult
+from ..core.summarizers import list_ollama_models
 from ..service import quotas
 from ..service.schemas import FetchRequest, FetchResponse, SummarizeResponse
 from .routers import auth as auth_router
+from .routers import batch as batch_router
+from .routers import digests as digests_router
+from .routers import feeds as feeds_router
 from .routers import summarize as summarize_router
 
 _TEMPLATES = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
@@ -38,6 +43,34 @@ _TEMPLATES = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 app = FastAPI(title="Artificial Writer", version="1.0.0")
 app.include_router(auth_router.router)
 app.include_router(summarize_router.router)
+app.include_router(batch_router.router)
+app.include_router(feeds_router.router)
+app.include_router(digests_router.router)
+
+
+def _wants_html(request: Request) -> bool:
+    """True for browser navigations; False for API/JSON clients.
+
+    API routes (``/api``, ``/auth``, ``/ollama``, ``/health``) and any client that
+    doesn't ask for HTML keep the plain JSON 404 body, so only real page visits
+    get the illustrated error page.
+    """
+    path = request.url.path
+    if path.startswith(("/api", "/auth", "/ollama", "/health")):
+        return False
+    return "text/html" in request.headers.get("accept", "")
+
+
+@app.exception_handler(StarletteHTTPException)
+async def _http_exception_handler(
+    request: Request, exc: StarletteHTTPException
+) -> Response:
+    """Render a friendly HTML page for 404s in the browser; JSON otherwise."""
+    if exc.status_code == 404 and _wants_html(request):
+        return _TEMPLATES.TemplateResponse(
+            request, "404.html", {}, status_code=404
+        )
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 
 
 @app.exception_handler(AuthError)
@@ -128,6 +161,22 @@ def api_fetch(req: FetchRequest) -> FetchResponse:
     return _fetch(str(req.url))
 
 
+@app.get("/ollama/models")
+def ollama_models() -> dict[str, object]:
+    """List Ollama models pulled on the configured host, for the UI's picker.
+
+    Polls the local Ollama server so the model dropdown stays in sync with
+    whatever is actually installed. Returns an empty list (never an error) when
+    Ollama is not running, letting the page fall back to manual model entry.
+    No auth: this reports host-local infrastructure, not per-tenant data.
+    """
+    settings = get_settings()
+    models = list_ollama_models(
+        settings.ollama_host, timeout=min(settings.request_timeout, 5.0)
+    )
+    return {"models": models, "default": settings.ollama_model}
+
+
 def _render(
     request: Request,
     *,
@@ -147,6 +196,9 @@ def _render(
             "error": error,
             "url": url,
         },
+        # Never let the browser cache the app shell: a stale copy would keep
+        # running an old model-picker script against fresh server state.
+        headers={"Cache-Control": "no-store"},
     )
 
 
@@ -154,6 +206,27 @@ def _render(
 def index(request: Request) -> HTMLResponse:
     """Render the empty web form."""
     return _render(request)
+
+
+@app.get("/app", response_class=HTMLResponse)
+def console(request: Request) -> HTMLResponse:
+    """Render the authenticated browser console.
+
+    A single page that drives the existing JSON API (register/login, summarize,
+    archive, digests) from the browser. Auth rides on the signed session cookie
+    set by ``/auth/register`` and ``/auth/login``, so the page just calls those
+    endpoints with same-origin credentials -- no logic is duplicated here.
+    """
+    return _TEMPLATES.TemplateResponse(
+        request,
+        "console.html",
+        {
+            "backends": [s.value for s in SummarizerType],
+            "output_formats": [f.value for f in OutputFormat],
+            "ollama_model": get_settings().ollama_model,
+        },
+        headers={"Cache-Control": "no-store"},  # always serve the current shell
+    )
 
 
 @app.post("/", response_class=HTMLResponse)

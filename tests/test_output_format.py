@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from artificial_writer.core.output_format import OutputFormat
 from artificial_writer.core.summarizers.anthropic_provider import AnthropicSummarizer
+from artificial_writer.core.summarizers.base import estimate_tokens, trim_to_sentence
 from artificial_writer.core.summarizers.extractive import ExtractiveSummarizer
 from artificial_writer.core.summarizers.openai_provider import OpenAISummarizer
 from artificial_writer.core.summarizers.prompt import build_prompt
@@ -66,6 +67,36 @@ class _FakeOpenAIClient:
     def create(self, *, model: str, messages: list[dict[str, str]]) -> _FakeOpenAIResponse:
         self.prompts.append(messages[0]["content"])
         return _FakeOpenAIResponse("openai bullets")
+
+
+def test_trim_to_sentence_caps_at_full_stop() -> None:
+    text = "First sentence here. Second sentence runs well past the cap."
+    trimmed = trim_to_sentence(text, 30)
+    assert trimmed == "First sentence here."
+
+    # No cap and already-short text are returned (stripped) unchanged.
+    assert trim_to_sentence("  hello world  ", None) == "hello world"
+    assert trim_to_sentence("short.", 1000) == "short."
+
+
+def test_estimate_tokens_is_a_conservative_upper_bound() -> None:
+    # Erring high: at least the word count, and ~chars/3.5 for longer prose.
+    assert estimate_tokens("") == 0
+    assert estimate_tokens("one two three") == 3  # word floor dominates short text
+    assert estimate_tokens("a" * 70) == 20  # 70 / 3.5
+
+
+def test_backend_applies_its_own_input_cap() -> None:
+    summ = OpenAISummarizer.__new__(OpenAISummarizer)
+    summ._client = _FakeOpenAIClient()  # type: ignore[attr-defined]
+    summ._model = "gpt-4o-mini"  # type: ignore[attr-defined]
+    summ.max_input_tokens = 8  # ~28 chars after the 3.5 chars/token conversion
+
+    summ.summarize("First sentence here. Second sentence runs past the cap.")
+
+    sent = summ._client.prompts[0]  # type: ignore[attr-defined]
+    assert "First sentence here." in sent
+    assert "Second sentence" not in sent
 
 
 def test_openai_passes_formatted_prompt() -> None:

@@ -14,7 +14,7 @@ from .config import Settings, get_settings
 from .fetchers import FetchedArticle, Fetcher, registry
 from .output_format import OutputFormat
 from .storage import Storage
-from .summarizers import Summarizer, SummaryResult, build_summarizer
+from .summarizers import Summarizer, SummaryResult, build_summarizer, trim_to_sentence
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +70,7 @@ class Pipeline:
         output_format: OutputFormat = OutputFormat.PROSE,
     ) -> PipelineResult:
         """Summarize raw ``text`` that has already been obtained elsewhere."""
-        trimmed = text.strip()[: self._settings.max_input_chars]
+        trimmed = trim_to_sentence(text, self._settings.max_input_chars)
         summary = self._summarizer.summarize(trimmed, output_format=output_format)
         article = FetchedArticle(url="", title=title, text=trimmed)
         saved_path = (
@@ -89,7 +89,7 @@ class Pipeline:
         article = self._fetch(url)
         logger.info("Fetched %d words from %s", article.word_count, url)
 
-        text = article.text[: self._settings.max_input_chars]
+        text = trim_to_sentence(article.text, self._settings.max_input_chars)
         summary = self._summarizer.summarize(text, output_format=output_format)
         logger.info(
             "Summarized via %s in %.2fs", summary.backend, summary.elapsed_seconds
