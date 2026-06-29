@@ -185,14 +185,23 @@ def _render(
     error: str | None = None,
     url: str = "",
 ) -> HTMLResponse:
+    # The page renders the article/summary client-side from this state object and
+    # mirrors it to localStorage, so a reload restores the last result instead of
+    # showing an empty form. ``None`` means "nothing fetched yet".
+    state: dict[str, object] | None = None
+    if article is not None:
+        state = {
+            "url": url or article.url,
+            "article": article.model_dump(),
+            "result": result.model_dump() if result is not None else None,
+        }
     return _TEMPLATES.TemplateResponse(
         request,
         "index.html",
         {
             "backends": [s.value for s in SummarizerType],
             "ollama_model": get_settings().ollama_model,
-            "article": article,
-            "result": result,
+            "state": state,
             "error": error,
             "url": url,
         },

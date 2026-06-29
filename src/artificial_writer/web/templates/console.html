@@ -4,55 +4,227 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Console — Artificial Writer</title>
+  <!-- Apply the saved/preferred theme before first paint to avoid a flash. -->
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem("aw:theme");
+        if (!t) t = (window.matchMedia
+          && window.matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light";
+        document.documentElement.setAttribute("data-theme", t);
+      } catch (e) { /* localStorage blocked; default light applies */ }
+    })();
+  </script>
   <style>
-    :root { --bg: #f7f5dd; --accent: #9bdeac; --ink: #2b2b2b; }
+    :root {
+      --bg: #f7f5dd; --accent: #9bdeac; --on-accent: #173e27; --ink: #2b2b2b;
+      --line: #ece9c8; --card: #ffffff; --muted: #666; --muted2: #777;
+      --label: #555; --border: #ccc; --link: #1c6b3c; --shadow: rgba(0,0,0,.06);
+      --error-bg: #ffe3e3; --error-ink: #9b1c1c; --input-bg: #ffffff;
+      --pill-ink: #14532d; --overlay: rgba(0,0,0,.28);
+    }
+    html[data-theme="dark"] {
+      --bg: #16171c; --accent: #3f8f5c; --on-accent: #eafff1; --ink: #e7e5d8;
+      --line: #2e3036; --card: #23252c; --muted: #9aa0a6; --muted2: #8b9096;
+      --label: #b4bac0; --border: #3b3e46; --link: #82d8a0; --shadow: rgba(0,0,0,.5);
+      --error-bg: #4a2326; --error-ink: #ffb3b3; --input-bg: #2b2e36;
+      --pill-ink: #0c2a18; --overlay: rgba(0,0,0,.55);
+    }
     * { box-sizing: border-box; }
     body {
       margin: 0; font-family: "Segoe UI", system-ui, sans-serif;
       background: var(--bg); color: var(--ink); line-height: 1.6;
+      transition: background .2s ease, color .2s ease;
     }
-    main { max-width: 860px; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+    main { max-width: 860px; margin: 0 auto; padding: 1.5rem 1.25rem 4rem; }
     h1 { margin-bottom: .25rem; }
     h2 { margin-top: 0; }
-    p.sub { margin-top: 0; color: #666; }
-    a { color: #1c6b3c; }
-    label { display: block; font-size: .9rem; color: #555; margin-bottom: .2rem; }
+    p.sub { margin-top: 0; color: var(--muted); }
+    a { color: var(--link); }
+    label { display: block; font-size: .9rem; color: var(--label); margin-bottom: .2rem; }
     input, select, button, textarea {
-      padding: .6rem .75rem; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem;
+      padding: .6rem .75rem; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem;
       font-family: inherit;
     }
+    input, select, textarea { background: var(--input-bg); color: var(--ink); }
     input, select { width: 100%; }
-    button { background: var(--accent); border-color: var(--accent); cursor: pointer; font-weight: 600; }
+    button { background: var(--accent); border-color: var(--accent); color: var(--on-accent); cursor: pointer; font-weight: 600; }
     button:hover { filter: brightness(.96); }
-    button.link { background: none; border: none; color: #1c6b3c; padding: 0; font-weight: 600; width: auto; }
+    button.link { background: none; border: none; color: var(--link); padding: 0; font-weight: 600; width: auto; }
     .row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
     @media (max-width: 560px) { .row { grid-template-columns: 1fr; } }
     .field { margin-bottom: 1rem; }
-    .card { background: #fff; border-radius: 12px; padding: 1.25rem 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,.06); margin-bottom: 1.25rem; }
-    .meta { font-size: .85rem; color: #777; margin-top: .75rem; }
-    .error { background: #ffe3e3; color: #9b1c1c; padding: .75rem 1rem; border-radius: 8px; margin: 1rem 0; }
-    .topbar { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; flex-wrap: wrap; }
+    .card { background: var(--card); border-radius: 12px; padding: 1.25rem 1.5rem; box-shadow: 0 2px 8px var(--shadow); margin-bottom: 1.25rem; }
+    .meta { font-size: .85rem; color: var(--muted2); margin-top: .75rem; }
+    .error { background: var(--error-bg); color: var(--error-ink); padding: .75rem 1rem; border-radius: 8px; margin: 1rem 0; }
     .tabs { display: flex; gap: .5rem; margin-bottom: 1rem; }
-    .tabs button { background: #fff; border: 1px solid #ccc; }
-    .tabs button.active { background: var(--accent); border-color: var(--accent); }
+    .tabs button { background: var(--card); color: var(--ink); border: 1px solid var(--border); }
+    .tabs button.active { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
     .hidden { display: none; }
+    .batch-url-row { display: flex; gap: .5rem; align-items: center; margin-bottom: .5rem; }
+    .batch-url-row input { flex: 1; }
+    .batch-url-row .batch-url-remove {
+      flex: none; width: 2.2rem; height: 2.2rem; padding: 0; line-height: 1;
+      background: var(--card); border: 1px solid var(--border); color: var(--error-ink); font-size: 1.2rem;
+    }
+    .batch-url-row .batch-url-remove:hover { background: var(--error-bg); }
     pre { white-space: pre-wrap; word-wrap: break-word; font-family: inherit; margin: 0; }
-    .muted { color: #777; }
+    .muted { color: var(--muted2); }
+
+    /* ---- Top navigation bar ------------------------------------------- */
+    .nav {
+      position: sticky; top: 0; z-index: 20;
+      display: flex; align-items: center; gap: 1rem;
+      background: var(--card); border-bottom: 1px solid var(--line);
+      padding: .65rem 1.25rem; box-shadow: 0 1px 4px var(--shadow);
+    }
+    .nav .brand { font-weight: 700; font-size: 1.05rem; }
+    .nav .brand a { color: var(--ink); text-decoration: none; }
+    .nav .spacer { flex: 1; }
+    .nav button.navbtn {
+      background: var(--card); color: var(--ink); border: 1px solid var(--border); border-radius: 8px;
+      padding: .4rem .8rem; font-size: .9rem; display: inline-flex;
+      align-items: center; gap: .4rem;
+    }
+    .nav button.navbtn:hover { background: var(--bg); }
+    /* Round icon-only theme toggle that lives in the nav bar. */
+    .nav button.theme-toggle { padding: .4rem .6rem; font-size: 1.05rem; line-height: 1; }
+
+    /* ---- Account menu (dropdown) -------------------------------------- */
+    .menu-wrap { position: relative; }
+    .menu {
+      position: absolute; right: 0; top: calc(100% + .5rem);
+      width: min(360px, 92vw); max-height: 80vh; overflow-y: auto;
+      background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+      box-shadow: 0 10px 30px var(--shadow); padding: 1.1rem 1.25rem; z-index: 30;
+    }
+    .menu h3 { margin: 0 0 .25rem; font-size: 1rem; }
+    .menu details { border-top: 1px solid var(--line); padding-top: .75rem; margin-top: .75rem; }
+    .menu summary { cursor: pointer; font-weight: 600; }
+
+    /* ---- Digests sidebar ---------------------------------------------- */
+    .overlay {
+      position: fixed; inset: 0; background: var(--overlay); z-index: 40;
+    }
+    .sidebar {
+      position: fixed; top: 0; right: 0; height: 100vh; width: min(420px, 100vw);
+      background: var(--bg); border-left: 1px solid var(--line); z-index: 50;
+      box-shadow: -6px 0 24px var(--shadow);
+      display: flex; flex-direction: column;
+      transform: translateX(100%); transition: transform .22s ease;
+    }
+    .sidebar.open { transform: translateX(0); }
+    .sidebar header {
+      display: flex; align-items: center; gap: .75rem;
+      padding: 1rem 1.25rem; border-bottom: 1px solid var(--line); background: var(--card);
+    }
+    .sidebar header h2 { margin: 0; font-size: 1.1rem; flex: 1; }
+    .sidebar .body { padding: 1rem 1.25rem; overflow-y: auto; flex: 1; }
+    .sidebar .x { font-size: 1.3rem; line-height: 1; }
+    .digest-item {
+      background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+      padding: .8rem 1rem; margin-bottom: .75rem;
+    }
+    .digest-item .title { font-weight: 600; cursor: pointer; color: var(--link); }
+    .digest-item .title:hover { text-decoration: underline; }
+    .pill {
+      display: inline-block; background: var(--accent); color: var(--pill-ink);
+      border-radius: 999px; padding: .05rem .55rem; font-size: .68rem;
+      font-weight: 700; text-transform: uppercase; letter-spacing: .03em;
+    }
+    .digest-detail h3 { margin: .2rem 0 .4rem; font-size: 1.15rem; }
+    .digest-detail h4 { margin: 1rem 0 .25rem; font-size: 1rem; }
+    .digest-detail p { margin: .35rem 0; }
   </style>
 </head>
 <body>
-  <main>
-    <div class="topbar">
-      <div>
-        <h1>Artificial Writer</h1>
-        <p class="sub">Your account console &middot; <a href="/">simple form</a></p>
-      </div>
-      <div id="account" class="hidden">
-        <span class="muted" id="who"></span>
-        <button class="link" id="logout">Log out</button>
+  <!-- ===================================================== Top navigation -->
+  <nav class="nav">
+    <div class="brand"><a href="/app">Artificial Writer</a></div>
+    <span class="muted" style="font-size:.85rem"><a href="/">simple form</a></span>
+    <div class="spacer"></div>
+
+    <button class="navbtn theme-toggle" id="theme-toggle" type="button" aria-label="Toggle theme"></button>
+
+    <div id="nav-authed" class="hidden" style="display:flex; gap:.6rem; align-items:center;">
+      <button class="navbtn" id="open-digests" type="button">🗂 Digests</button>
+
+      <div class="menu-wrap">
+        <button class="navbtn" id="menu-toggle" type="button" aria-haspopup="true" aria-expanded="false">
+          <span>👤</span><span id="who" class="muted"></span><span>▾</span>
+        </button>
+
+        <!-- Account menu: profile + account management -->
+        <div id="account-menu" class="menu hidden">
+          <h3>Profile</h3>
+          <div id="account-summary" class="meta" style="margin-top:.25rem"></div>
+
+          <details id="email-details">
+            <summary>Change email</summary>
+            <form id="email-form" style="margin-top:.75rem">
+              <div class="field">
+                <label for="new-email">New email</label>
+                <input id="new-email" type="email" autocomplete="email" required />
+              </div>
+              <div class="field">
+                <label for="email-password">Confirm with your password</label>
+                <input id="email-password" type="password" autocomplete="current-password" required />
+              </div>
+              <button type="submit">Update email</button>
+              <div id="email-error" class="error hidden"></div>
+              <div id="email-ok" class="meta hidden">Email updated.</div>
+            </form>
+          </details>
+
+          <details id="password-details">
+            <summary>Change password</summary>
+            <form id="password-form" style="margin-top:.75rem">
+              <div class="field">
+                <label for="cur-password">Current password</label>
+                <input id="cur-password" type="password" autocomplete="current-password" required />
+              </div>
+              <div class="field">
+                <label for="new-password">New password <span class="muted">(min 8 characters)</span></label>
+                <input id="new-password" type="password" autocomplete="new-password" minlength="8" required />
+              </div>
+              <button type="submit">Update password</button>
+              <div id="password-error" class="error hidden"></div>
+              <div id="password-ok" class="meta hidden">Password updated.</div>
+            </form>
+          </details>
+
+          <details id="keys-details">
+            <summary>API keys</summary>
+            <p class="sub" style="margin-top:.6rem">Use a key as <code>Authorization: Bearer aw_…</code> to call the API directly.</p>
+            <button class="link" id="create-key" type="button">+ new key</button>
+            <div id="keys-error" class="error hidden"></div>
+            <div id="new-key" class="meta hidden"></div>
+            <div id="keys-results"></div>
+          </details>
+
+          <details id="delete-details">
+            <summary style="color:#9b1c1c">Delete account</summary>
+            <form id="delete-form" style="margin-top:.75rem">
+              <p class="sub">This permanently deletes your account and all summaries,
+                feeds, digests, and API keys. This cannot be undone.</p>
+              <div class="field">
+                <label for="del-password">Confirm with your password</label>
+                <input id="del-password" type="password" autocomplete="current-password" required />
+              </div>
+              <button type="submit" style="background:#ffb3b3; border-color:#ffb3b3">Delete my account</button>
+              <div id="delete-error" class="error hidden"></div>
+            </form>
+          </details>
+
+          <div style="border-top:1px solid var(--line); padding-top:.75rem; margin-top:.75rem">
+            <button class="link" id="logout" type="button">Log out</button>
+          </div>
+        </div>
       </div>
     </div>
+  </nav>
 
+  <main>
     <!-- ---------------------------------------------------------------- Auth -->
     <section id="auth-view" class="hidden">
       <div class="card">
@@ -91,56 +263,6 @@
     <!-- ------------------------------------------------------------ Console -->
     <section id="app-view" class="hidden">
       <div class="card">
-        <h2>Account</h2>
-        <div id="account-summary" class="meta"></div>
-        <details style="margin-top:1rem">
-          <summary style="cursor:pointer; color:#1c6b3c; font-weight:600">Change email</summary>
-          <form id="email-form" style="margin-top:1rem">
-            <div class="field">
-              <label for="new-email">New email</label>
-              <input id="new-email" type="email" autocomplete="email" required />
-            </div>
-            <div class="field">
-              <label for="email-password">Confirm with your password</label>
-              <input id="email-password" type="password" autocomplete="current-password" required />
-            </div>
-            <button type="submit">Update email</button>
-            <div id="email-error" class="error hidden"></div>
-            <div id="email-ok" class="meta hidden">Email updated.</div>
-          </form>
-        </details>
-        <details style="margin-top:1rem">
-          <summary style="cursor:pointer; color:#1c6b3c; font-weight:600">Change password</summary>
-          <form id="password-form" style="margin-top:1rem">
-            <div class="field">
-              <label for="cur-password">Current password</label>
-              <input id="cur-password" type="password" autocomplete="current-password" required />
-            </div>
-            <div class="field">
-              <label for="new-password">New password <span class="muted">(min 8 characters)</span></label>
-              <input id="new-password" type="password" autocomplete="new-password" minlength="8" required />
-            </div>
-            <button type="submit">Update password</button>
-            <div id="password-error" class="error hidden"></div>
-            <div id="password-ok" class="meta hidden">Password updated.</div>
-          </form>
-        </details>
-        <details style="margin-top:1rem">
-          <summary style="cursor:pointer; color:#9b1c1c; font-weight:600">Delete account</summary>
-          <form id="delete-form" style="margin-top:1rem">
-            <p class="sub">This permanently deletes your account and all summaries,
-              feeds, digests, and API keys. This cannot be undone.</p>
-            <div class="field">
-              <label for="del-password">Confirm with your password</label>
-              <input id="del-password" type="password" autocomplete="current-password" required />
-            </div>
-            <button type="submit" style="background:#ffb3b3; border-color:#ffb3b3">Delete my account</button>
-            <div id="delete-error" class="error hidden"></div>
-          </form>
-        </details>
-      </div>
-
-      <div class="card">
         <h2>Summarize</h2>
         <div class="field">
           <label for="url">Article URL</label>
@@ -176,9 +298,9 @@
         <h2>Batch</h2>
         <p class="sub">Summarize many URLs at once into a single digest.</p>
         <div class="field">
-          <label for="batch-urls">Article URLs <span class="muted">(one per line)</span></label>
-          <textarea id="batch-urls" rows="4" style="width:100%"
-            placeholder="https://example.com/one&#10;https://example.com/two"></textarea>
+          <label>Article URLs <span class="muted">(one link per line)</span></label>
+          <div id="batch-url-list"></div>
+          <button type="button" class="link" id="batch-add-url">+ Add link</button>
         </div>
         <div class="row">
           <div class="field">
@@ -238,28 +360,54 @@
         <div id="archive-error" class="error hidden"></div>
         <div id="archive-results"></div>
       </div>
-
-      <div class="card">
-        <h2>Digests <button class="link" id="refresh-digests" type="button">refresh</button></h2>
-        <p class="sub">Stored output of batch runs and feed polls.</p>
-        <div id="digests-error" class="error hidden"></div>
-        <div id="digests-results"></div>
-      </div>
-
-      <div class="card">
-        <h2>API keys <button class="link" id="create-key" type="button">+ new key</button></h2>
-        <p class="sub">Use a key as <code>Authorization: Bearer aw_…</code> to call the API directly.</p>
-        <div id="keys-error" class="error hidden"></div>
-        <div id="new-key" class="meta hidden"></div>
-        <div id="keys-results"></div>
-      </div>
     </section>
   </main>
+
+  <!-- ================================================== Digests sidebar -->
+  <div id="sidebar-overlay" class="overlay hidden"></div>
+  <aside id="digests-sidebar" class="sidebar" aria-hidden="true">
+    <header>
+      <button class="link" id="digest-back" type="button" style="font-size:1.4rem">←</button>
+      <h2 id="sidebar-title">Past digests</h2>
+      <button class="link" id="refresh-digests" type="button">refresh</button>
+      <button class="link x" id="close-digests" type="button" title="Close">×</button>
+    </header>
+    <div class="body">
+      <div id="digests-error" class="error hidden"></div>
+      <!-- List of past digests -->
+      <div id="digests-results"></div>
+      <!-- Selected digest, rendered in place -->
+      <div id="digest-detail" class="digest-detail hidden"></div>
+    </div>
+  </aside>
 
   <script>
     const $ = (id) => document.getElementById(id);
     const show = (el) => el.classList.remove("hidden");
     const hide = (el) => el.classList.add("hidden");
+
+    // --- Dark / light theme toggle ----------------------------------------
+    // The theme attribute is set pre-paint in <head>; here we sync the button
+    // icon and persist the choice on click. No page reload.
+    (function () {
+      const KEY = "aw:theme";
+      const root = document.documentElement;
+      const btn = $("theme-toggle");
+      function render(theme) {
+        root.setAttribute("data-theme", theme);
+        // Sun shown while dark (click → light); half-moon while light (click → dark).
+        btn.textContent = theme === "dark" ? "☀️" : "🌗";
+        btn.setAttribute("aria-pressed", String(theme === "dark"));
+        btn.title = theme === "dark" ? "Switch to light theme" : "Switch to dark theme";
+      }
+      let current = root.getAttribute("data-theme") || "light";
+      render(current);
+      btn.onclick = () => {
+        current = current === "dark" ? "light" : "dark";
+        try { localStorage.setItem(KEY, current); } catch (_) { /* quota/blocked */ }
+        render(current);
+      };
+    })();
 
     function showError(el, msg) { el.textContent = msg; show(el); }
     function clearError(el) { el.textContent = ""; hide(el); }
@@ -281,19 +429,39 @@
 
     // --- Views -------------------------------------------------------------
     function showAuth() {
-      show($("auth-view")); hide($("app-view")); hide($("account"));
+      show($("auth-view")); hide($("app-view")); hide($("nav-authed"));
+      closeMenu(); closeSidebar();
     }
     function showApp(email) {
-      hide($("auth-view")); show($("app-view")); show($("account"));
-      if (email) $("who").textContent = email + " · ";
+      hide($("auth-view")); show($("app-view")); show($("nav-authed"));
+      if (email) $("who").textContent = email;
       loadAccount(); loadDigests(); loadFeeds(); loadKeys();
     }
+
+    // --- Account menu (dropdown) ------------------------------------------
+    function closeMenu() {
+      hide($("account-menu"));
+      $("menu-toggle").setAttribute("aria-expanded", "false");
+    }
+    function toggleMenu() {
+      const menu = $("account-menu");
+      const willOpen = menu.classList.contains("hidden");
+      menu.classList.toggle("hidden");
+      $("menu-toggle").setAttribute("aria-expanded", String(willOpen));
+    }
+    $("menu-toggle").onclick = (e) => { e.stopPropagation(); toggleMenu(); };
+    // Click outside the menu closes it (but not clicks inside it).
+    document.addEventListener("click", (e) => {
+      const menu = $("account-menu");
+      if (menu.classList.contains("hidden")) return;
+      if (!menu.contains(e.target) && e.target !== $("menu-toggle")) closeMenu();
+    });
 
     // --- Account -----------------------------------------------------------
     async function loadAccount() {
       try {
         const a = await api("/auth/me");
-        $("who").textContent = a.email + " · ";
+        $("who").textContent = a.email;
         const cap = a.daily_cost_cap_usd > 0
           ? ` · $${a.cost_usd_today.toFixed(2)} / $${a.daily_cost_cap_usd.toFixed(2)} spent today`
           : "";
@@ -471,7 +639,31 @@
       } catch (err) { showError($("archive-error"), err.message); }
     };
 
-    // --- Digests -----------------------------------------------------------
+    // --- Digests sidebar ---------------------------------------------------
+    function openSidebar() {
+      $("digests-sidebar").classList.add("open");
+      $("digests-sidebar").setAttribute("aria-hidden", "false");
+      show($("sidebar-overlay"));
+      showDigestList();   // always open on the list, not a stale detail view
+    }
+    function closeSidebar() {
+      $("digests-sidebar").classList.remove("open");
+      $("digests-sidebar").setAttribute("aria-hidden", "true");
+      hide($("sidebar-overlay"));
+    }
+    function showDigestList() {
+      hide($("digest-detail"));
+      show($("digests-results"));
+      $("sidebar-title").textContent = "Past digests";
+      hide($("digest-back"));
+    }
+
+    $("open-digests").onclick = () => { closeMenu(); loadDigests(); openSidebar(); };
+    $("close-digests").onclick = closeSidebar;
+    $("sidebar-overlay").onclick = closeSidebar;
+    $("digest-back").onclick = showDigestList;
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeSidebar(); });
+
     async function loadDigests() {
       clearError($("digests-error"));
       try {
@@ -481,28 +673,109 @@
           return;
         }
         $("digests-results").innerHTML = rows.map((d) => `
-          <div class="meta" style="margin-top:.75rem">
-            <a href="/api/digests/${d.id}?format=html" target="_blank" rel="noopener">${escapeHtml(d.title)}</a>
-            · ${escapeHtml(d.kind)} · ${d.summary_ids.length} article(s)
-            · <button class="link" data-digest="${escapeHtml(d.id)}" type="button">delete</button></div>`).join("");
+          <div class="digest-item">
+            <div class="title" data-open="${escapeHtml(d.id)}">${escapeHtml(d.title)}</div>
+            <div class="meta" style="margin-top:.35rem">
+              <span class="pill">${escapeHtml(d.kind)}</span>
+              · ${d.summary_ids.length} article(s)
+              · <a href="/api/digests/${d.id}?format=html" target="_blank" rel="noopener">full view</a>
+              · <button class="link" data-digest="${escapeHtml(d.id)}" type="button">delete</button>
+            </div>
+          </div>`).join("");
+        $("digests-results").querySelectorAll("[data-open]").forEach((el) => {
+          el.onclick = () => openDigest(el.dataset.open);
+        });
         $("digests-results").querySelectorAll("button[data-digest]").forEach((b) => {
           b.onclick = () => deleteDigest(b.dataset.digest);
         });
       } catch (err) { showError($("digests-error"), err.message); }
     }
-    $("refresh-digests").onclick = loadDigests;
+    $("refresh-digests").onclick = () => { showDigestList(); loadDigests(); };
+
+    // Render a stored digest in the sidebar from its markdown body.
+    async function openDigest(id) {
+      clearError($("digests-error"));
+      try {
+        const d = await api(`/api/digests/${encodeURIComponent(id)}`);
+        $("digest-detail").innerHTML =
+          `<div class="meta" style="margin-bottom:.75rem">
+             <span class="pill">${escapeHtml(d.kind)}</span>
+             · ${d.summary_ids.length} article(s)
+             · ${escapeHtml(new Date(d.created_at).toLocaleString())}
+             · <a href="/api/digests/${d.id}?format=html" target="_blank" rel="noopener">open full page</a>
+           </div>`
+          + renderMarkdown(d.body);
+        hide($("digests-results"));
+        show($("digest-detail"));
+        $("sidebar-title").textContent = d.title;
+        show($("digest-back"));
+      } catch (err) { showError($("digests-error"), err.message); }
+    }
+
+    // Minimal, safe markdown -> HTML for digest bodies (headings, links, text).
+    // Everything is HTML-escaped first; only the recognized patterns become tags.
+    function renderMarkdown(md) {
+      const lines = String(md || "").split("\n");
+      const out = [];
+      for (const raw of lines) {
+        const line = raw.trimEnd();
+        if (!line) continue;
+        const safe = escapeHtml(line);
+        if (line.startsWith("## ")) { out.push(`<h4>${escapeHtml(line.slice(3))}</h4>`); continue; }
+        if (line.startsWith("# ")) { out.push(`<h3>${escapeHtml(line.slice(2))}</h3>`); continue; }
+        // Standalone link line: [text](url)
+        const link = line.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+        if (link) {
+          out.push(`<p><a href="${escapeHtml(link[2])}" target="_blank" rel="noopener">${escapeHtml(link[1])}</a></p>`);
+          continue;
+        }
+        out.push(`<p>${safe}</p>`);
+      }
+      return out.join("");
+    }
 
     async function deleteDigest(id) {
       if (!confirm("Delete this digest? This cannot be undone.")) return;
-      try { await api(`/api/digests/${encodeURIComponent(id)}`, { method: "DELETE" }); loadDigests(); }
-      catch (err) { showError($("digests-error"), err.message); }
+      try {
+        await api(`/api/digests/${encodeURIComponent(id)}`, { method: "DELETE" });
+        showDigestList(); loadDigests();
+      } catch (err) { showError($("digests-error"), err.message); }
     }
 
     // --- Batch -------------------------------------------------------------
+    // Each link gets its own input row; the + button adds another and every
+    // row past the first carries a remove (×) button.
+    const batchList = $("batch-url-list");
+    function addBatchRow(value = "") {
+      const row = document.createElement("div");
+      row.className = "batch-url-row";
+      const input = document.createElement("input");
+      input.type = "url";
+      input.className = "batch-url";
+      input.placeholder = "https://example.com/article";
+      input.value = value;
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "batch-url-remove";
+      remove.title = "Remove this link";
+      remove.innerHTML = "&times;";
+      remove.onclick = () => {
+        row.remove();
+        if (!batchList.querySelector(".batch-url-row")) addBatchRow();
+      };
+      row.append(input, remove);
+      batchList.append(row);
+      input.focus();
+      return input;
+    }
+    $("batch-add-url").onclick = () => addBatchRow();
+    addBatchRow();   // start with one empty row
+
     $("batch-btn").onclick = async () => {
       clearError($("batch-error"));
       const btn = $("batch-btn");
-      const urls = $("batch-urls").value.split("\n").map((u) => u.trim()).filter(Boolean);
+      const urls = Array.from(batchList.querySelectorAll(".batch-url"))
+        .map((i) => i.value.trim()).filter(Boolean);
       if (!urls.length) { showError($("batch-error"), "Enter at least one URL."); return; }
       const statusEl = $("batch-status");
       btn.disabled = true; btn.textContent = "Queuing…";

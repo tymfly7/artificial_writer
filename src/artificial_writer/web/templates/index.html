@@ -4,37 +4,77 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Artificial Writer</title>
+  <!-- Apply the saved/preferred theme before first paint to avoid a flash. -->
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem("aw:theme");
+        if (!t) t = (window.matchMedia
+          && window.matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light";
+        document.documentElement.setAttribute("data-theme", t);
+      } catch (e) { /* localStorage blocked; default light applies */ }
+    })();
+  </script>
   <style>
-    :root { --bg: #f7f5dd; --accent: #9bdeac; --ink: #2b2b2b; }
+    :root {
+      --bg: #f7f5dd; --accent: #9bdeac; --on-accent: #173e27; --ink: #2b2b2b;
+      --card: #ffffff; --muted: #666; --muted2: #777; --label: #555;
+      --border: #ccc; --link: #1c6b3c; --shadow: rgba(0,0,0,.06);
+      --error-bg: #ffe3e3; --error-ink: #9b1c1c; --input-bg: #ffffff;
+    }
+    html[data-theme="dark"] {
+      --bg: #16171c; --accent: #3f8f5c; --on-accent: #eafff1; --ink: #e7e5d8;
+      --card: #23252c; --muted: #9aa0a6; --muted2: #8b9096; --label: #b4bac0;
+      --border: #3b3e46; --link: #82d8a0; --shadow: rgba(0,0,0,.5);
+      --error-bg: #4a2326; --error-ink: #ffb3b3; --input-bg: #2b2e36;
+    }
     * { box-sizing: border-box; }
     body {
       margin: 0; font-family: "Segoe UI", system-ui, sans-serif;
       background: var(--bg); color: var(--ink); line-height: 1.6;
+      transition: background .2s ease, color .2s ease;
     }
     main { max-width: 860px; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
     h1 { margin-bottom: .25rem; }
-    p.sub { margin-top: 0; color: #666; }
+    p.sub { margin-top: 0; color: var(--muted); }
     form { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; margin: 1.5rem 0; }
-    label { font-size: .9rem; color: #555; }
+    label { font-size: .9rem; color: var(--label); }
     input[type=url], input[type=text] {
-      padding: .6rem .75rem; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem;
+      padding: .6rem .75rem; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem;
+      background: var(--input-bg); color: var(--ink);
     }
     input[type=url] { flex: 1 1 320px; }
     input[type=text] { flex: 0 1 180px; }
-    select, button { padding: .6rem .75rem; border-radius: 8px; border: 1px solid #ccc; font-size: 1rem; }
-    button { background: var(--accent); border-color: var(--accent); cursor: pointer; font-weight: 600; }
+    select, button { padding: .6rem .75rem; border-radius: 8px; border: 1px solid var(--border); font-size: 1rem; }
+    select { background: var(--input-bg); color: var(--ink); }
+    button { background: var(--accent); border-color: var(--accent); color: var(--on-accent); cursor: pointer; font-weight: 600; }
     button:hover { filter: brightness(.96); }
-    .card { background: #fff; border-radius: 12px; padding: 1.25rem 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,.06); margin-bottom: 1.25rem; }
+    button.link { background: none; border: none; color: var(--link); padding: .15rem .3rem; font-weight: 600; }
+    .card { background: var(--card); border-radius: 12px; padding: 1.25rem 1.5rem; box-shadow: 0 2px 8px var(--shadow); margin-bottom: 1.25rem; }
     .card h2 { margin-top: 0; }
     .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; align-items: start; }
     .compare .card { margin-bottom: 0; }
     @media (max-width: 680px) { .compare { grid-template-columns: 1fr; } }
-    .meta { font-size: .85rem; color: #777; margin-top: 1rem; }
-    .error { background: #ffe3e3; color: #9b1c1c; padding: .75rem 1rem; border-radius: 8px; }
+    .meta { font-size: .85rem; color: var(--muted2); margin-top: 1rem; }
+    .actions { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: 1rem; }
+    .actions button { font-size: .85rem; padding: .35rem .7rem; }
+    .saved-note { font-size: .8rem; color: var(--link); margin-left: .5rem; }
+    .error { background: var(--error-bg); color: var(--error-ink); padding: .75rem 1rem; border-radius: 8px; }
     pre { white-space: pre-wrap; word-wrap: break-word; font-family: inherit; max-height: 22rem; overflow-y: auto; margin: 0; }
+
+    /* ---- Dark / light theme toggle ----------------------------------- */
+    .theme-toggle {
+      position: fixed; top: 1rem; right: 1rem; z-index: 100;
+      width: 2.5rem; height: 2.5rem; border-radius: 999px;
+      border: 1px solid var(--border); background: var(--card); color: var(--ink);
+      cursor: pointer; font-size: 1.15rem; line-height: 1; padding: 0;
+      box-shadow: 0 2px 8px var(--shadow);
+    }
+    .theme-toggle:hover { filter: brightness(.97); }
   </style>
 </head>
 <body>
+  <button type="button" id="theme-toggle" class="theme-toggle" aria-label="Toggle theme"></button>
   <main>
     <h1>Artificial Writer</h1>
     <p class="sub">Paste an article URL and <strong>Fetch</strong> it, then pick a backend and <strong>Summarize</strong>. Free &amp; offline by default. Have an account? <a href="/app">Open the console</a>.</p>
@@ -42,7 +82,7 @@
     <!-- Step one: fetch the original article text. -->
     <form method="post" action="/">
       <input type="hidden" name="action" value="fetch" />
-      <input type="url" name="url" placeholder="https://example.com/article"
+      <input type="url" name="url" id="fetch-url" placeholder="https://example.com/article"
              value="{{ url or '' }}" required />
       <button type="submit">Fetch</button>
     </form>
@@ -51,54 +91,232 @@
       <div class="error">{{ error }}</div>
     {% endif %}
 
-    {% if article %}
-      <h2>{{ article.title }}</h2>
-      <!-- Step two: summarize the text we already fetched (no re-fetch). -->
-      <form method="post" action="/">
-        <input type="hidden" name="action" value="summarize" />
-        <input type="hidden" name="url" value="{{ article.url }}" />
-        <input type="hidden" name="article_title" value="{{ article.title }}" />
-        <input type="hidden" name="article_text" value="{{ article.text }}" />
-        <label for="summarizer">Backend</label>
-        <select id="summarizer" name="summarizer">
-          {% for b in backends %}<option value="{{ b }}">{{ b }}</option>{% endfor %}
-        </select>
-        <label for="model">Model</label>
-        <select id="model" name="model" title="Local model name for the Ollama backend">
-          <option value="{{ ollama_model }}">{{ ollama_model }}</option>
-        </select>
-        <button type="submit">Summarize</button>
-      </form>
-
-      <!-- Original and summary side by side for easy comparison. -->
-      <div class="compare">
-        <div class="card">
-          <h2>Original</h2>
-          <pre>{{ article.text }}</pre>
-          <div class="meta">{{ article.word_count }} words</div>
-        </div>
-        <div class="card">
-          <h2>Summary</h2>
-          {% if result %}
-            <pre>{{ result.summary }}</pre>
-            <div class="meta">
-              {{ result.backend }}{% if result.model %} / {{ result.model }}{% endif %}
-              &middot; {{ result.elapsed_seconds }}s
-              {% if result.url %}&middot; <a href="{{ result.url }}" target="_blank" rel="noopener">source</a>{% endif %}
-            </div>
-          {% else %}
-            <p class="sub">Pick a backend above and click <strong>Summarize</strong>.</p>
-          {% endif %}
-        </div>
-      </div>
-    {% endif %}
+    <!-- Article + summary are rendered here from the state object below and
+         restored from localStorage on reload, so results survive a refresh. -->
+    <div id="results"></div>
   </main>
 
   <script>
-    // Poll the local Ollama host (via the server) and offer its installed
-    // models as suggestions on the Model field. Harmless when Ollama is off:
-    // the datalist just stays empty and manual entry still works.
-    (async () => {
+    // ---- Dark / light theme toggle ----------------------------------------
+    // The theme attribute is already set in <head> (pre-paint); here we just
+    // sync the button icon and persist the user's choice. No page reload.
+    (function () {
+      const KEY = "aw:theme";
+      const root = document.documentElement;
+      const btn = document.getElementById("theme-toggle");
+      function render(theme) {
+        root.setAttribute("data-theme", theme);
+        // Sun shown while dark (click → light); half-moon while light (click → dark).
+        btn.textContent = theme === "dark" ? "☀️" : "🌗";
+        btn.setAttribute("aria-pressed", String(theme === "dark"));
+        btn.title = theme === "dark" ? "Switch to light theme" : "Switch to dark theme";
+      }
+      let current = root.getAttribute("data-theme") || "light";
+      render(current);
+      btn.onclick = () => {
+        current = current === "dark" ? "light" : "dark";
+        try { localStorage.setItem(KEY, current); } catch (_) { /* quota/blocked */ }
+        render(current);
+      };
+    })();
+
+    // ---- Page config + server-provided state ------------------------------
+    const BACKENDS = {{ backends | tojson }};
+    const OLLAMA_MODEL = {{ ollama_model | tojson }};
+    // The result the server just rendered (after a fetch/summarize POST), or
+    // null on a plain GET. When present it overwrites the saved copy.
+    const SERVER_STATE = {{ state | tojson }};
+    const STORAGE_KEY = "aw:last-result";
+
+    const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+    // ---- Render the article/summary from a state object -------------------
+    function renderResults(state) {
+      const results = document.getElementById("results");
+      if (!state || !state.article) { results.innerHTML = ""; return; }
+
+      const a = state.article;
+      const r = state.result;
+      const backend = r ? r.backend : (BACKENDS[0] || "");
+      const modelOpt = (r && r.model) || OLLAMA_MODEL;
+
+      const backendOptions = BACKENDS.map((b) =>
+        `<option value="${escapeHtml(b)}"${b === backend ? " selected" : ""}>${escapeHtml(b)}</option>`
+      ).join("");
+
+      let summaryCard;
+      if (r) {
+        summaryCard = `
+          <pre id="summary-text">${escapeHtml(r.summary)}</pre>
+          <div class="actions">
+            <button type="button" id="save-btn">Save (.md)</button>
+            <button type="button" id="copy-btn">Copy</button>
+            <!-- "Save to my account" is injected here only when logged in. -->
+            <span id="account-save"></span>
+          </div>
+          <div class="meta" id="account-save-note"></div>
+          <div class="meta">
+            ${escapeHtml(r.backend)}${r.model ? " / " + escapeHtml(r.model) : ""}
+            &middot; ${escapeHtml(String(r.elapsed_seconds))}s
+            ${r.url ? `&middot; <a href="${escapeHtml(r.url)}" target="_blank" rel="noopener">source</a>` : ""}
+          </div>`;
+      } else {
+        summaryCard = `<p class="sub">Pick a backend above and click <strong>Summarize</strong>.</p>`;
+      }
+
+      results.innerHTML = `
+        <h2>${escapeHtml(a.title)}</h2>
+        <!-- Step two: summarize the text we already fetched (no re-fetch). -->
+        <form method="post" action="/">
+          <input type="hidden" name="action" value="summarize" />
+          <input type="hidden" name="url" value="${escapeHtml(a.url)}" />
+          <input type="hidden" name="article_title" value="${escapeHtml(a.title)}" />
+          <input type="hidden" name="article_text" value="${escapeHtml(a.text)}" />
+          <label for="summarizer">Backend</label>
+          <select id="summarizer" name="summarizer">${backendOptions}</select>
+          <label for="model">Model</label>
+          <select id="model" name="model" title="Local model name for the Ollama backend">
+            <option value="${escapeHtml(modelOpt)}">${escapeHtml(modelOpt)}</option>
+          </select>
+          <button type="submit">Summarize</button>
+          <button type="button" class="link" id="clear-btn">Clear saved</button>
+        </form>
+
+        <div class="compare">
+          <div class="card">
+            <h2>Original</h2>
+            <pre>${escapeHtml(a.text)}</pre>
+            <div class="meta">${escapeHtml(String(a.word_count))} words</div>
+          </div>
+          <div class="card">
+            <h2>Summary</h2>
+            ${summaryCard}
+          </div>
+        </div>`;
+
+      wireActions(state);
+      enhanceOllamaModels();
+    }
+
+    // ---- Save / copy / clear ----------------------------------------------
+    function wireActions(state) {
+      const clearBtn = document.getElementById("clear-btn");
+      if (clearBtn) clearBtn.onclick = clearSaved;
+
+      const r = state.result;
+      if (!r) return;
+      const a = state.article;
+
+      const saveBtn = document.getElementById("save-btn");
+      if (saveBtn) saveBtn.onclick = () => downloadMarkdown(a, r);
+
+      const copyBtn = document.getElementById("copy-btn");
+      if (copyBtn) copyBtn.onclick = async () => {
+        try {
+          await navigator.clipboard.writeText(r.summary);
+          flash(copyBtn, "Copied!");
+        } catch (_) { flash(copyBtn, "Copy failed"); }
+      };
+
+      maybeOfferAccountSave(state);
+    }
+
+    // ---- Save to account (only when a session is active) ------------------
+    // The anonymous form persists in the browser; logged-in visitors can also
+    // push the result to their durable, searchable archive. We reuse the authed
+    // /api/summarize endpoint so the tier/quota policy still applies. If no
+    // session (or no server/DB) is present, /auth/me fails and we show nothing,
+    // keeping the form usable with zero server deps.
+    async function maybeOfferAccountSave(state) {
+      const slot = document.getElementById("account-save");
+      if (!slot) return;
+      try {
+        const me = await fetch("/auth/me", { credentials: "same-origin" });
+        if (!me.ok) return;   // anonymous (or auth/DB not running): browser-only save
+      } catch (_) { return; }
+
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.textContent = "Save to my account";
+      btn.title = "Re-run this through your account so it lands in your searchable archive.";
+      slot.appendChild(btn);
+
+      const note = document.getElementById("account-save-note");
+      btn.onclick = async () => {
+        btn.disabled = true; btn.textContent = "Saving…";
+        if (note) note.textContent = "";
+        try {
+          const r = state.result;
+          await api("/api/summarize", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              url: state.article.url,
+              summarizer: r.backend,
+              model: r.model || null,
+            }),
+          });
+          btn.textContent = "Saved ✓";
+          if (note) note.innerHTML =
+            `Saved to your archive — <a href="/app">open the console</a> to search it.`;
+        } catch (err) {
+          btn.disabled = false; btn.textContent = "Save to my account";
+          if (note) note.textContent = err.message;
+        }
+      };
+    }
+
+    // Small JSON fetch helper mirroring the console's: throws the API's `detail`
+    // (e.g. quota 429 / disallowed-backend 403) so the note can surface it.
+    async function api(path, options = {}) {
+      const res = await fetch(path, { credentials: "same-origin", ...options });
+      let data = null;
+      try { data = await res.json(); } catch (_) { /* empty body */ }
+      if (!res.ok) {
+        throw new Error((data && data.detail) || res.statusText || "Request failed");
+      }
+      return data;
+    }
+
+    function downloadMarkdown(article, result) {
+      const lines = [
+        `# ${article.title}`,
+        "",
+        result.summary,
+        "",
+        "---",
+        `Source: ${article.url}`,
+        `Backend: ${result.backend}${result.model ? " / " + result.model : ""}`,
+      ];
+      const blob = new Blob([lines.join("\n")], { type: "text/markdown;charset=utf-8" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = (slugify(article.title) || "summary") + ".md";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(a.href);
+    }
+
+    const slugify = (s) => String(s).toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
+
+    function flash(btn, msg) {
+      const original = btn.textContent;
+      btn.textContent = msg;
+      setTimeout(() => { btn.textContent = original; }, 1500);
+    }
+
+    function clearSaved() {
+      try { localStorage.removeItem(STORAGE_KEY); } catch (_) { /* ignore */ }
+      document.getElementById("results").innerHTML = "";
+      const url = document.getElementById("fetch-url");
+      if (url) url.value = "";
+    }
+
+    // ---- Ollama model discovery (same as before, applied after render) ----
+    async function enhanceOllamaModels() {
       const select = document.getElementById("model");
       if (!select) return;
       try {
@@ -108,11 +326,23 @@
         const models = data.models || [];
         if (!models.length) return;   // leave the default option in place
         const current = select.value;
-        const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
         select.innerHTML = models.map((m) =>
-          `<option value="${esc(m)}"${m === current ? " selected" : ""}>${esc(m)}</option>`).join("");
+          `<option value="${escapeHtml(m)}"${m === current ? " selected" : ""}>${escapeHtml(m)}</option>`).join("");
       } catch (_) { /* Ollama not running; the default option stays. */ }
+    }
+
+    // ---- Boot: prefer the freshly rendered result, else restore the saved one.
+    (() => {
+      let state = SERVER_STATE;
+      if (state) {
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (_) { /* quota */ }
+      } else {
+        try { state = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null"); } catch (_) { state = null; }
+        // Re-fill the fetch box so the restored article's URL is visible.
+        const url = document.getElementById("fetch-url");
+        if (state && state.url && url && !url.value) url.value = state.url;
+      }
+      renderResults(state);
     })();
   </script>
 </body>
